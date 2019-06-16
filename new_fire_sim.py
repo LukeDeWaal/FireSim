@@ -476,6 +476,9 @@ class SimulationInterface(object):
             sim.run()
 
 
+# TODO: Add Statistics
+# TODO: Add Aircraft Dropping
+
 if __name__ == '__main__':
 
     N_SIMULATIONS = 2
