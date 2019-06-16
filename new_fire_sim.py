@@ -5,20 +5,25 @@ from tqdm import tqdm
 import threading as th
 # from multiprocess import Pool
 import os, datetime
+import matplotlib.pyplot as plt
+
+plt.interactive(True)
+print(plt.isinteractive())
 
 
 class SimGrid(object):
 
     def __init__(self, time: int, forest_size: Union[tuple, list, np.array]):
 
-        self.time = int(time)                   # Length of simulation
-        self.forest_size = tuple(forest_size)   # Grid Size
+        self.time = int(time)  # Length of simulation
+        self.forest_size = tuple(forest_size)  # Grid Size
 
         # Important Parameters and coefficients
-        self.__r_evap = lambda r_grid, k: k/(r_grid+k)  # Base-evaporation rate curve
-        self.__weights = np.array([[1/np.sqrt(2), 1, 1/np.sqrt(2)],
-                                  [1, 0.5, 1],
-                                  [1/np.sqrt(2), 1, 1/np.sqrt(2)]], dtype=float) # Weights used for weighted average
+        self.__r_evap = lambda r_grid, k: k / (r_grid + k)  # Base-evaporation rate curve
+        self.__weights = np.array([[1 / np.sqrt(2), 1, 1 / np.sqrt(2)],
+                                   [1, 0.5, 1],
+                                   [1 / np.sqrt(2), 1, 1 / np.sqrt(2)]],
+                                  dtype=float)  # Weights used for weighted average
 
         self.wind = {
             'direction': (1, 0),
@@ -30,17 +35,18 @@ class SimGrid(object):
             'slope': 0.0
         }
 
-        self.__retardant_efficiency = 5.0       # Lower numbers will reduce effectiveness
-        self.__k = 0.001                        # lower numbers will create less evaporation
-        self.__gust_factor = 0                  # Higher numbers will make wind more random
-        self.__elevation_shift_intensity = 0    # Higher numbers will make terrain more random
+        self.__retardant_efficiency = 5.0  # Lower numbers will reduce effectiveness
+        self.__k = 0.001  # lower numbers will create less evaporation
+        self.__gust_factor = 0  # Higher numbers will make wind more random
+        self.__elevation_shift_intensity = 0  # Higher numbers will make terrain more random
         self.__maxfuel = 25
 
         # Main grid where simulation values are stored
-        self.main_grid = np.zeros((self.time, *self.forest_size, 4), dtype=float)  # This grid will be used to convert to gif
+        self.main_grid = np.zeros((self.time, *self.forest_size, 4),
+                                  dtype=float)  # This grid will be used to convert to gif
 
         # These grids will be temporary grids used for calculations
-        self.F_grid = np.random.rand(*self.forest_size)*10         # Fuel Grid
+        self.F_grid = np.random.rand(*self.forest_size) * 10  # Fuel Grid
         self.I_grid = np.zeros(self.forest_size, dtype=float)  # Intensity Grid
         self.I_grid[self.forest_size[0] // 2, self.forest_size[1] // 2] = 1.0
         self.R_grid = np.zeros(self.forest_size, dtype=float)  # Retardant Grid
@@ -95,7 +101,7 @@ class SimGrid(object):
         :param size: size of the grid
         """
 
-        self.F_grid[topleft[0]:topleft[0]+size[0], topleft[1]: topleft[1]+size[1]] = np.zeros(size, dtype=float)
+        self.F_grid[topleft[0]:topleft[0] + size[0], topleft[1]: topleft[1] + size[1]] = np.zeros(size, dtype=float)
 
     def place_retardant(self, amount: float, topleft: tuple, size: tuple, randomness: float = 0):
         """
@@ -112,12 +118,12 @@ class SimGrid(object):
             pass
 
         else:
-            delta_distribution = np.random.uniform(-amount, amount, size)*randomness
+            delta_distribution = np.random.uniform(-amount, amount, size) * randomness
             retardant += delta_distribution
             retardant[retardant > 1] = 1
             retardant[retardant < 0] = 0
 
-        self.R_grid[topleft[0]:topleft[0]+size[0], topleft[1]: topleft[1]+size[1]] = retardant
+        self.R_grid[topleft[0]:topleft[0] + size[0], topleft[1]: topleft[1] + size[1]] = retardant
 
     def set_retardant_efficiency(self, e: Union[float, int]):
 
@@ -127,7 +133,8 @@ class SimGrid(object):
 
         self.__k = k
 
-    def set_wind(self, direction: Union[tuple, list, np.array, np.ndarray], magnitude: Union[float, int], randomness: float = 0.2):
+    def set_wind(self, direction: Union[tuple, list, np.array, np.ndarray], magnitude: Union[float, int],
+                 randomness: float = 0.2):
         """
         Set the general wind direction for the simulation
         :param direction: (steps in x ('downwards'), steps in y ('right'))
@@ -135,41 +142,41 @@ class SimGrid(object):
         """
         if len(direction) == 2:
             direction = np.array(direction, dtype=float)
-            self.wind['direction'] = direction/np.linalg.norm(direction)
+            self.wind['direction'] = direction / np.linalg.norm(direction)
         else:
             raise ValueError("Wrong Shape input for direction")
 
         if 1 >= magnitude >= 0:
-            self.wind['magnitude'] = magnitude/5
+            self.wind['magnitude'] = magnitude / 5
 
         else:
             raise ValueError("Magnitude has to be between 1 and 0")
 
-        self.__weights += magnitude*self.__directed_weights_increase(direction)
+        self.__weights += magnitude * self.__directed_weights_increase(direction)
         self.__gust_factor = randomness
         # self.__weights += np.random.uniform(-self.__gust_factor, self.__gust_factor, self.__weights.shape)
 
-    def set_elevation(self, slope_direction: Union[tuple, list, np.array, np.ndarray], slope_angle: float, randomness: float = 0.2):
+    def set_elevation(self, slope_direction: Union[tuple, list, np.array, np.ndarray], slope_angle: float,
+                      randomness: float = 0.2):
 
         if len(slope_direction) == 2:
             direction = np.array(slope_direction, dtype=float)
-            self.elevation['direction'] = direction/np.linalg.norm(direction)
+            self.elevation['direction'] = direction / np.linalg.norm(direction)
         else:
             raise ValueError("Wrong Shape input for direction")
 
-        if np.pi/2 > slope_angle >= 0:
+        if np.pi / 2 > slope_angle >= 0:
             self.elevation['slope'] = slope_angle
 
         else:
             raise ValueError("Magnitude has to be between 1 and 0")
 
-        self.__weights += slope_angle/(np.pi/2)*self.__directed_weights_increase(direction)
+        self.__weights += slope_angle / np.pi * self.__directed_weights_increase(direction)
         self.__elevation_shift_intensity = randomness
 
     def run(self, name: str = None, path: str = None):
 
         if path is None:
-
             path = os.getcwd() + '\\simulations\\'
 
         if name is None:
@@ -182,11 +189,34 @@ class SimGrid(object):
 
         print("===== SIMULATING =====")
         for t in tqdm(range(self.time)):
+            self.fuel_average[t] = self.__grid_average(self.F_grid, t)
+            self.fire_average[t] = self.__grid_average(self.I_grid, t)
+            self.retardant_average[t] = self.__grid_average(self.R_grid, t)
             self.__update(t)
 
         print("===== COLOURING =====")
         self.__create_coloured_grid()
         self.__save_simulation(name, path)
+
+    def plot_progress(self):
+
+        fig, ax = plt.subplots(3, 1, sharex=True)
+        ax[0].plot(range(self.time), self.fuel_average, 'g--', label='Fuel Amount Average')
+        ax[1].plot(range(self.time), self.fire_average, 'r--', label='Fire Intensity Average')
+        ax[2].plot(range(self.time), self.retardant_average, 'b--', label='Retardant Amount Average')
+
+        print(self.retardant_average, self.fire_average, self.fuel_average)
+
+        for i in range(3):
+            ax[i].set_xlabel('Time')
+            ax[i].set_ylabel('Amount')
+
+        fig.tight_layout()
+        # plt.show()
+
+    @staticmethod
+    def __grid_average(grid: Union[np.array, np.ndarray], t: int):
+        return np.average(grid)
 
     @staticmethod
     def __directed_weights_increase(direction: Union[np.array, np.ndarray]):
@@ -196,11 +226,11 @@ class SimGrid(object):
         :return: delta weights matrix
         """
 
-        weights = np.zeros((3,3))
+        weights = np.zeros((3, 3))
 
         for x in range(3):
             for y in range(3):
-                weights[x, y] = -direction[0]*(x - 1) - direction[1]*(y-1)
+                weights[x, y] = -direction[0] * (x - 1) - direction[1] * (y - 1)
 
         return weights
 
@@ -233,7 +263,7 @@ class SimGrid(object):
             size[0] = 2
 
         elif xrange[1] >= self.forest_size[0]:
-            xrange[1] = self.forest_size[0]-1
+            xrange[1] = self.forest_size[0] - 1
             weight_idx[0][1] -= 1
             size[0] = 2
 
@@ -243,15 +273,16 @@ class SimGrid(object):
             size[1] = 2
 
         elif yrange[1] >= self.forest_size[0]:
-            yrange[1] = self.forest_size[0]-1
+            yrange[1] = self.forest_size[0] - 1
             weight_idx[1][1] -= 1
             size[1] = 2
 
         new_weights = self.__weights[weight_idx[0][0]:weight_idx[0][1], weight_idx[1][0]:weight_idx[1][1]] + \
                       self.__random_kernel(tuple(size), (-self.__gust_factor, self.__gust_factor)) + \
-                      self.__random_kernel(tuple(size), (-self.__elevation_shift_intensity, self.__elevation_shift_intensity))
+                      self.__random_kernel(tuple(size),
+                                           (-self.__elevation_shift_intensity, self.__elevation_shift_intensity))
 
-        return np.average(grid[xrange[0]:xrange[1]+1, yrange[0]:yrange[1]+1], weights=new_weights)
+        return np.average(grid[xrange[0]:xrange[1] + 1, yrange[0]:yrange[1] + 1], weights=new_weights)
 
     @staticmethod
     def __random_kernel(size: tuple, randrange: tuple = (-0.2, 0.2)):
@@ -295,7 +326,7 @@ class SimGrid(object):
         for x in range(self.forest_size[0]):
             for y in range(self.forest_size[1]):
                 if self.R_grid[x, y] >= self.I_grid[x, y]:
-                    self.R_grid[x, y] = (1 - (evap[x, y] + self.I_grid[x, y]/2)) * self.R_grid[x, y]
+                    self.R_grid[x, y] = (1 - (evap[x, y] + self.I_grid[x, y] / 2)) * self.R_grid[x, y]
                 else:
                     self.R_grid[x, y] = 0
 
@@ -304,7 +335,8 @@ class SimGrid(object):
         self.main_grid[t, :, :, 2] = self.R_grid
         return old_grid
 
-    def __update_intensities(self, t: int, old_fuel: Union[np.array, np.ndarray], old_retardant: Union[np.array, np.ndarray]):
+    def __update_intensities(self, t: int, old_fuel: Union[np.array, np.ndarray],
+                             old_retardant: Union[np.array, np.ndarray]):
 
         old_grid = self.I_grid.copy()
 
@@ -316,10 +348,11 @@ class SimGrid(object):
         for x in range(self.forest_size[0]):
             for y in range(self.forest_size[1]):
                 if old_fuel[x, y] > 0:
-                    self.I_grid[x, y] = old_grid[x, y]*(1+delta_fuel[x,y]) + iavgs[x, y] - delta_retardant[x, y]*self.__retardant_efficiency
+                    self.I_grid[x, y] = old_grid[x, y] * (1 + delta_fuel[x, y]) + iavgs[x, y] - delta_retardant[
+                        x, y] * self.__retardant_efficiency
 
                 else:
-                    self.I_grid[x, y] = old_grid[x, y]/10
+                    self.I_grid[x, y] = old_grid[x, y] / 10
 
         self.I_grid[self.I_grid < 0.0001] = 0
         self.I_grid[self.I_grid > 1] = 1
@@ -377,7 +410,8 @@ class SimGrid(object):
 
                         else:
                             try:
-                                colour = self.__ground_rgb[int(np.round(cell[0]/self.__maxfuel * len(self.__ground_rgb), 0))]
+                                colour = self.__ground_rgb[
+                                    int(np.round(cell[0] / self.__maxfuel * len(self.__ground_rgb), 0))]
 
                             except IndexError:
                                 colour = self.__ground_rgb[-1]
@@ -394,7 +428,7 @@ class SimGrid(object):
         :param path: path to older in which to store
         """
 
-        im.mimsave((path+f'/{name}.gif'), self.coloured)
+        im.mimsave((path + f'/{name}.gif'), self.coloured)
 
 
 class SimulationInterface(object):
@@ -475,37 +509,42 @@ class SimulationInterface(object):
         for sim in self.simulations:
             sim.run()
 
+    def plot_statistics(self):
+
+        for sim in self.simulations:
+            sim.plot_progress()
+            plt.show()
+
 
 # TODO: Add Statistics
 # TODO: Add Aircraft Dropping
 
 if __name__ == '__main__':
-
-    N_SIMULATIONS = 2
-    TIME = 100
+    N_SIMULATIONS = 1
+    TIME = 200
     GRID_SIZE = (300, 300)
 
     RETARDANTS = {
         'amounts': [
-            0.5,
+            0.99,
             0.7
         ],
         'toplefts': [
-            (100, 100),
+            (100, 0),
             (140, 140)
         ],
         'sizes': [
-            (15, 100),
+            (25, 300),
             (100, 5)
         ],
         'randomnesses': [
-            0.1,
+            0.33,
             0.5
         ]
     }
     ELEVATIONS = {
         'elevations': [
-            ([1, 1], np.pi / 6),
+            ([-1, 0], np.pi / 6),
             ([-1, -1], np.pi / 4)
         ],
         'randomnesses': [
@@ -520,8 +559,8 @@ if __name__ == '__main__':
         ]
     }
     RETARDANT_EFFICIENCIES = {
-        'e' : [
-            3.5,
+        'e': [
+            5.5,
             2.5
         ]
     }
@@ -543,3 +582,4 @@ if __name__ == '__main__':
     S.set_winds(**WINDS)
     S.place_retardants(**RETARDANTS)
     S.run_simulations()
+    S.plot_statistics()
