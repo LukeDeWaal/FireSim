@@ -286,6 +286,37 @@ class SimGrid(object):
         self.main_grid[0, :, :, 2] = np.array(self.R_grid)
         self.main_grid[0, :, :, 3] = np.array(self.H_grid)
 
+    def __extract_kernel(self, grid: Union[np.array, np.ndarray], position: tuple, size: list = [3, 3]):
+
+        if grid.shape[0] >= position[0] >= 0 and grid.shape[1] >= position[1] >= 0:
+
+            grid_idx = [[position[0]-size[0]//2, position[0]+size[0]//2],
+                        [position[1]-size[1]//2, position[1]+size[1]//2]]
+
+            if grid_idx[0][0] < 0:
+                grid_idx[0][0] += 1
+                size[0] = 2
+
+            elif grid_idx[0][1] >= grid.shape[0]:
+                grid_idx[0][1] -= 1
+                size[0] = 2
+
+            if grid_idx[1][0] < 0:
+                grid_idx[1][0] += 1
+                size[1] = 2
+
+            elif grid_idx[1][1] >= grid.shape[0]:
+                grid_idx[1][1] -= 1
+                size[1] = 2
+
+
+            kernel = grid[grid_idx[0][0]:grid_idx[0][1]+1, grid_idx[1][0]:grid_idx[1][1]+1]
+
+            return kernel, grid_idx, tuple(size)
+
+        else:
+            raise IndexError("Coordinate outside grid")
+
     def __kernel_average(self, grid: Union[np.array, np.ndarray], position: tuple):
         """
         Method to calculate a weighted average of a 3x3 kernel
@@ -303,8 +334,8 @@ class SimGrid(object):
             weight_idx[0][0] += 1
             size[0] = 2
 
-        elif xrange[1] >= self.forest_size[0]:
-            xrange[1] = self.forest_size[0] - 1
+        elif xrange[1] >= grid.shape[0]:
+            xrange[1] = grid.shape[0] - 1
             weight_idx[0][1] -= 1
             size[0] = 2
 
@@ -313,8 +344,8 @@ class SimGrid(object):
             weight_idx[1][0] += 1
             size[1] = 2
 
-        elif yrange[1] >= self.forest_size[0]:
-            yrange[1] = self.forest_size[0] - 1
+        elif yrange[1] >= grid.shape[0]:
+            yrange[1] = grid.shape[0] - 1
             weight_idx[1][1] -= 1
             size[1] = 2
 
@@ -334,6 +365,50 @@ class SimGrid(object):
         :return:
         """
         return np.random.uniform(*randrange, size)
+
+    @staticmethod
+    def __intersection_point_finder(grid: Union[np.array, np.ndarray],
+                                    p_0: Union[np.array, np.ndarray],
+                                    v: Union[np.array, np.ndarray],
+                                    length: float,
+                                    max_iter: int = 200):
+
+        indices = set()
+        v = v /  np.linalg.norm(v)
+
+        for n in np.linspace(0, length, max_iter):
+            p_i = p_0 + n * v
+
+            if 0 <= p_i[0] <= grid.shape[0] and 0 <= p_i[1] <= grid.shape[1]:
+                rounded = p_i.round()
+                indices.add(tuple(rounded.astype(int)))
+
+            else:
+                break
+
+        return list(indices)
+
+    def retardant_along_line(self, t: int, amount: float, length: float, p_0: Union[np.array, np.ndarray], v: Union[np.array, np.ndarray], shape: tuple = (3, 3), randomness: float = 0.2):
+
+        if t != 0:
+            indices = self.__intersection_point_finder(self.main_grid[t, :, :, 2], p_0, v, length)
+            amount_per_pixel = amount/len(indices)
+
+            for x, y in indices:
+
+                values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), list(shape))
+                self.main_grid[t, idc[0][0]:idc[0][1]+1, idc[1][0]:idc[1][1]+1, 2] = values + 2*np.random.uniform(
+                    randomness, 1-randomness, result_shape)*amount_per_pixel
+
+        else:
+            indices = self.__intersection_point_finder(self.R_grid, p_0, v, length)
+            amount_per_pixel = amount / len(indices)
+
+            for x, y in indices:
+                values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), list(shape))
+
+                self.R_grid[idc[0][0]:idc[0][1] + 1, idc[1][0]:idc[1][1] + 1] = values + 2 * np.random.uniform(
+                    randomness, 1 - randomness, result_shape) * amount_per_pixel
 
     def __intensity_averages(self):
         """
@@ -495,7 +570,12 @@ class SimulationInterface(object):
 
         self.simulations = [SimGrid(time, forest_size) for _ in range(n)]  # Container for SimGrid objects
 
-    def place_retardants(self, amounts: list, toplefts: list, sizes: list, randomnesses: list):
+    def along_line(self,  t: int, amount: float, length: float, p_0: Union[np.array, np.ndarray], v: Union[np.array, np.ndarray], randomness: float = 0.2, kernel_shape: tuple = (3,3)):
+
+        for sim in self.simulations:
+            sim.retardant_along_line(t, amount, length, p_0, v, shape=kernel_shape, randomness=randomness)
+
+    def place_retardants(self, amounts: list, toplefts: list, sizes: list, randomnesses: list, linetype: str = 'line or grid'):
         """
         Method to place retardants in simulations
         :param amounts: [ amount_1, amount_2, ... , amount_n]
@@ -577,7 +657,7 @@ class SimulationInterface(object):
 if __name__ == '__main__':
 
     N_SIMULATIONS = 2
-    TIME = 1000
+    TIME = 10
     GRID_SIZE = (300, 300)
 
     RETARDANTS = {
@@ -635,6 +715,7 @@ if __name__ == '__main__':
     S.set_elevations(**ELEVATIONS)
     S.set_evaporation_constants(**EVAPORATION_CONSTANTS)
     S.set_retardant_efficiencies(**RETARDANT_EFFICIENCIES)
+    S.along_line(0, 500, 200, np.array([140, 140], dtype=np.int), np.array([0.3, 0.9]), 0.4)
     S.set_winds(**WINDS)
     S.place_retardants(**RETARDANTS)
     S.run_simulations()
