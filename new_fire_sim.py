@@ -1,11 +1,11 @@
-import numpy as np
-import imageio as im
-from typing import Union
-from tqdm import tqdm
-import threading as th
 # from multiprocess import Pool
-import os, datetime
+import datetime
+import os
+from typing import Union
+import imageio as im
 import matplotlib.pyplot as plt
+import numpy as np
+from tqdm import tqdm
 
 plt.interactive(True)
 print(plt.isinteractive())
@@ -126,10 +126,18 @@ class SimGrid(object):
         self.R_grid[topleft[0]:topleft[0] + size[0], topleft[1]: topleft[1] + size[1]] = retardant
 
     def set_retardant_efficiency(self, e: Union[float, int]):
+        """
+        Higher numbers will make retardant slower to evaporate with fire
+        :param e: efficiency; 0 = useless, normal setting: 2.5-7.5
+        """
 
         self.__retardant_efficiency = abs(e)
 
     def set_retardant_evaporation_constant(self, k: float = 0.005):
+        """
+        Higher numbers will make retardant evaporate faster
+        :param k: normal values: 0.0001-0.005
+        """
 
         self.__k = k
 
@@ -158,6 +166,12 @@ class SimGrid(object):
 
     def set_elevation(self, slope_direction: Union[tuple, list, np.array, np.ndarray], slope_angle: float,
                       randomness: float = 0.2):
+        """
+        Set the elevation-map of the grid
+        :param slope_direction: (steps in x ('downwards'), steps in y ('right'))
+        :param slope_angle: 0 - pi/2
+        :param randomness: 0-1
+        """
 
         if len(slope_direction) == 2:
             direction = np.array(slope_direction, dtype=float)
@@ -175,6 +189,11 @@ class SimGrid(object):
         self.__elevation_shift_intensity = randomness
 
     def run(self, name: str = None, path: str = None):
+        """
+        Start the simulation
+        :param name: name of file
+        :param path: folder of file
+        """
 
         if path is None:
             path = os.getcwd() + '\\simulations\\'
@@ -199,7 +218,9 @@ class SimGrid(object):
         self.__save_simulation(name, path)
 
     def plot_progress(self):
-
+        """
+        Plot the averages of the 3 parameters over time
+        """
         fig, ax = plt.subplots(3, 1, sharex=True)
         ax[0].plot(range(self.time), self.fuel_average, 'g--', label='Fuel Amount Average')
         ax[1].plot(range(self.time), self.fire_average, 'r--', label='Fire Intensity Average')
@@ -215,7 +236,12 @@ class SimGrid(object):
         # plt.show()
 
     @staticmethod
-    def __grid_average(grid: Union[np.array, np.ndarray], t: int):
+    def __grid_average(grid: Union[np.array, np.ndarray]):
+        """
+        Average value of a grid
+        :param grid: m x n sized array
+        :return: average
+        """
         return np.average(grid)
 
     @staticmethod
@@ -286,10 +312,19 @@ class SimGrid(object):
 
     @staticmethod
     def __random_kernel(size: tuple, randrange: tuple = (-0.2, 0.2)):
-
+        """
+        Randomized values to add to the kernel
+        :param size: 2x2, 2x3, 3x2, 3x3
+        :param randrange: Measure of how random the values are
+        :return:
+        """
         return np.random.uniform(*randrange, size)
 
     def __intensity_averages(self):
+        """
+        Averaging the fire intensity over a 3x3 kernel,every grid with their own weights
+        :return:
+        """
 
         avgs = np.zeros(self.forest_size, dtype=float)
 
@@ -326,7 +361,7 @@ class SimGrid(object):
         for x in range(self.forest_size[0]):
             for y in range(self.forest_size[1]):
                 if self.R_grid[x, y] >= self.I_grid[x, y]:
-                    self.R_grid[x, y] = (1 - (evap[x, y] + self.I_grid[x, y] / 2)) * self.R_grid[x, y]
+                    self.R_grid[x, y] = (1 - (evap[x, y] + self.I_grid[x, y])) * self.R_grid[x, y]
                 else:
                     self.R_grid[x, y] = 0
 
@@ -348,11 +383,11 @@ class SimGrid(object):
         for x in range(self.forest_size[0]):
             for y in range(self.forest_size[1]):
                 if old_fuel[x, y] > 0:
-                    self.I_grid[x, y] = old_grid[x, y] * (1 + delta_fuel[x, y]) + iavgs[x, y] - delta_retardant[
-                        x, y] * self.__retardant_efficiency
+                    self.I_grid[x, y] = old_grid[x, y] * (1 + delta_fuel[x, y] - delta_retardant[x, y] *
+                                        self.__retardant_efficiency) + iavgs[x, y]
 
                 else:
-                    self.I_grid[x, y] = old_grid[x, y] / 10
+                    self.I_grid[x, y] = old_grid[x, y] / 15
 
         self.I_grid[self.I_grid < 0.0001] = 0
         self.I_grid[self.I_grid > 1] = 1
@@ -516,11 +551,14 @@ class SimulationInterface(object):
             plt.show()
 
 
-# TODO: Add Statistics
+# TODO: Tweak parameters to make simulation better
 # TODO: Add Aircraft Dropping
+# TODO: Tracking fire shape, make algorithm to drop retardant on optimal spots
+
 
 if __name__ == '__main__':
-    N_SIMULATIONS = 1
+
+    N_SIMULATIONS = 2
     TIME = 200
     GRID_SIZE = (300, 300)
 
