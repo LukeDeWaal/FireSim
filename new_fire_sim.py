@@ -147,6 +147,7 @@ class SimGrid(object):
         Set the general wind direction for the simulation
         :param direction: (steps in x ('downwards'), steps in y ('right'))
         :param magnitude: 0-1
+        :param randomness: 0-1
         """
         if len(direction) == 2:
             direction = np.array(direction, dtype=float)
@@ -208,9 +209,9 @@ class SimGrid(object):
 
         print("===== SIMULATING =====")
         for t in tqdm(range(self.time)):
-            self.fuel_average[t] = self.__grid_average(self.F_grid, t)
-            self.fire_average[t] = self.__grid_average(self.I_grid, t)
-            self.retardant_average[t] = self.__grid_average(self.R_grid, t)
+            self.fuel_average[t] = self.__grid_average(self.F_grid)
+            self.fire_average[t] = self.__grid_average(self.I_grid)
+            self.retardant_average[t] = self.__grid_average(self.R_grid)
             self.__update(t)
 
         print("===== COLOURING =====")
@@ -226,11 +227,25 @@ class SimGrid(object):
         ax[1].plot(range(self.time), self.fire_average, 'r--', label='Fire Intensity Average')
         ax[2].plot(range(self.time), self.retardant_average, 'b--', label='Retardant Amount Average')
 
-        print(self.retardant_average, self.fire_average, self.fuel_average)
-
         for i in range(3):
+
+            if i == 0:
+                ax[i].set_ylim(0, np.max(self.fuel_average))
+                ax[i].set_title('Average Fuel - Time')
+                ax[i].set_ylabel('Average Fuel Amount')
+
+            elif i == 1:
+                ax[i].set_ylim(0, np.max(self.fire_average))
+                ax[i].set_title('Average Fire Intensity - Time')
+                ax[i].set_ylabel('Average Fire Intensity')
+
+            elif i == 2:
+                ax[i].set_ylim(0, np.max(self.retardant_average))
+                ax[i].set_title('Average Retardant - Time')
+                ax[i].set_ylabel('Average Retardant Amount')
+
+            ax[i].set_xlim(0, self.time)
             ax[i].set_xlabel('Time')
-            ax[i].set_ylabel('Amount')
 
         fig.tight_layout()
         # plt.show()
@@ -361,7 +376,8 @@ class SimGrid(object):
         for x in range(self.forest_size[0]):
             for y in range(self.forest_size[1]):
                 if self.R_grid[x, y] >= self.I_grid[x, y]:
-                    self.R_grid[x, y] = (1 - (evap[x, y] + self.I_grid[x, y])) * self.R_grid[x, y]
+                    self.R_grid[x, y] = (1 - (evap[x, y] + self.I_grid[x, y]/3)) * self.R_grid[x, y]
+
                 else:
                     self.R_grid[x, y] = 0
 
@@ -370,7 +386,8 @@ class SimGrid(object):
         self.main_grid[t, :, :, 2] = self.R_grid
         return old_grid
 
-    def __update_intensities(self, t: int, old_fuel: Union[np.array, np.ndarray],
+    def __update_intensities(self, t: int,
+                             old_fuel: Union[np.array, np.ndarray],
                              old_retardant: Union[np.array, np.ndarray]):
 
         old_grid = self.I_grid.copy()
@@ -383,8 +400,9 @@ class SimGrid(object):
         for x in range(self.forest_size[0]):
             for y in range(self.forest_size[1]):
                 if old_fuel[x, y] > 0:
-                    self.I_grid[x, y] = old_grid[x, y] * (1 + delta_fuel[x, y] - delta_retardant[x, y] *
-                                        self.__retardant_efficiency) + iavgs[x, y]
+                    self.I_grid[x, y] = old_grid[x, y] * (1 +
+                                        delta_fuel[x, y] - (delta_retardant[x, y] * self.__retardant_efficiency)) + \
+                                        iavgs[x, y]/10
 
                 else:
                     self.I_grid[x, y] = old_grid[x, y] / 15
@@ -559,7 +577,7 @@ class SimulationInterface(object):
 if __name__ == '__main__':
 
     N_SIMULATIONS = 2
-    TIME = 200
+    TIME = 1000
     GRID_SIZE = (300, 300)
 
     RETARDANTS = {
@@ -598,7 +616,7 @@ if __name__ == '__main__':
     }
     RETARDANT_EFFICIENCIES = {
         'e': [
-            5.5,
+            10.0,
             2.5
         ]
     }
