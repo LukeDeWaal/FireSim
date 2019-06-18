@@ -8,7 +8,7 @@ import numpy as np
 from tqdm import tqdm
 
 plt.interactive(True)
-print(plt.isinteractive())
+print("Interactive Mode: ", plt.isinteractive())
 
 
 class SimGrid(object):
@@ -245,6 +245,7 @@ class SimGrid(object):
                 ax[i].set_ylabel('Average Retardant Amount')
 
             ax[i].set_xlim(0, self.time)
+            ax[i].grid(True)
             ax[i].set_xlabel('Time')
 
         fig.tight_layout()
@@ -286,7 +287,9 @@ class SimGrid(object):
         self.main_grid[0, :, :, 2] = np.array(self.R_grid)
         self.main_grid[0, :, :, 3] = np.array(self.H_grid)
 
-    def __extract_kernel(self, grid: Union[np.array, np.ndarray], position: tuple, size: list = [3, 3]):
+    def __extract_kernel(self, grid: Union[np.array, np.ndarray], position: tuple, size: tuple = (3, 3)):
+
+        size = list(size)
 
         if grid.shape[0] >= position[0] >= 0 and grid.shape[1] >= position[1] >= 0:
 
@@ -294,21 +297,20 @@ class SimGrid(object):
                         [position[1]-size[1]//2, position[1]+size[1]//2]]
 
             if grid_idx[0][0] < 0:
-                grid_idx[0][0] += 1
-                size[0] = 2
+                grid_idx[0][0] = 0
 
             elif grid_idx[0][1] >= grid.shape[0]:
-                grid_idx[0][1] -= 1
-                size[0] = 2
+                grid_idx[0][1] = grid.shape[0] - 1
+
+            size[0] = grid_idx[0][1] - grid_idx[0][0] + 1
 
             if grid_idx[1][0] < 0:
-                grid_idx[1][0] += 1
-                size[1] = 2
+                grid_idx[1][0] = 0
 
-            elif grid_idx[1][1] >= grid.shape[0]:
-                grid_idx[1][1] -= 1
-                size[1] = 2
+            elif grid_idx[1][1] >= grid.shape[1]:
+                grid_idx[1][1] = grid.shape[1] - 1
 
+            size[1] = grid_idx[1][1] - grid_idx[1][0] + 1
 
             kernel = grid[grid_idx[0][0]:grid_idx[0][1]+1, grid_idx[1][0]:grid_idx[1][1]+1]
 
@@ -395,8 +397,7 @@ class SimGrid(object):
             amount_per_pixel = amount/len(indices)
 
             for x, y in indices:
-
-                values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), list(shape))
+                values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), shape)
                 self.main_grid[t, idc[0][0]:idc[0][1]+1, idc[1][0]:idc[1][1]+1, 2] = values + 2*np.random.uniform(
                     randomness, 1-randomness, result_shape)*amount_per_pixel
 
@@ -405,8 +406,7 @@ class SimGrid(object):
             amount_per_pixel = amount / len(indices)
 
             for x, y in indices:
-                values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), list(shape))
-
+                values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), shape)
                 self.R_grid[idc[0][0]:idc[0][1] + 1, idc[1][0]:idc[1][1] + 1] = values + 2 * np.random.uniform(
                     randomness, 1 - randomness, result_shape) * amount_per_pixel
 
@@ -457,7 +457,7 @@ class SimGrid(object):
                     self.R_grid[x, y] = 0
 
         self.R_grid[self.R_grid < 0.0001] = 0
-        self.R_grid[self.R_grid > 1] = 1
+        # self.R_grid[self.R_grid > 1] = 1
         self.main_grid[t, :, :, 2] = self.R_grid
         return old_grid
 
@@ -569,8 +569,20 @@ class SimulationInterface(object):
         """
 
         self.simulations = [SimGrid(time, forest_size) for _ in range(n)]  # Container for SimGrid objects
+        self.planned_retardants = np.zeros((n, time), dtype=object)
 
     def along_line(self,  t: int, amount: float, length: float, p_0: Union[np.array, np.ndarray], v: Union[np.array, np.ndarray], randomness: float = 0.2, kernel_shape: tuple = (3,3)):
+        """
+        Place Retardant along a slanted line with a certain width
+        :param t:
+        :param amount:
+        :param length:
+        :param p_0:
+        :param v:
+        :param randomness:
+        :param kernel_shape:
+        :return:
+        """
 
         for sim in self.simulations:
             sim.retardant_along_line(t, amount, length, p_0, v, shape=kernel_shape, randomness=randomness)
@@ -657,7 +669,7 @@ class SimulationInterface(object):
 if __name__ == '__main__':
 
     N_SIMULATIONS = 2
-    TIME = 10
+    TIME = 100
     GRID_SIZE = (300, 300)
 
     RETARDANTS = {
@@ -715,7 +727,7 @@ if __name__ == '__main__':
     S.set_elevations(**ELEVATIONS)
     S.set_evaporation_constants(**EVAPORATION_CONSTANTS)
     S.set_retardant_efficiencies(**RETARDANT_EFFICIENCIES)
-    S.along_line(0, 500, 200, np.array([140, 140], dtype=np.int), np.array([0.3, 0.9]), 0.4)
+    S.along_line(0, 500, 200, np.array([140, 140], dtype=np.int), np.array([0.3, 0.9]), 0.4, kernel_shape=(9, 9))
     S.set_winds(**WINDS)
     S.place_retardants(**RETARDANTS)
     S.run_simulations()
