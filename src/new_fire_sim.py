@@ -47,9 +47,9 @@ class SimGrid(object):
                                   dtype=float)  # This grid will be used to convert to gif
 
         # These grids will be temporary grids used for calculations
-        self.F_grid = np.random.rand(*self.forest_size) * self.__maxfuel  # Fuel Grid
+        self.F_grid = np.random.uniform(0.05, 1, self.forest_size) * self.__maxfuel  # Fuel Grid
         self.I_grid = np.zeros(self.forest_size, dtype=float)  # Intensity Grid
-        self.I_grid[self.forest_size[0] // 2, self.forest_size[1] // 2] = 1.0
+        self.I_grid[self.forest_size[0] // 2, self.forest_size[1] // 2] = 0.1
         self.R_grid = np.zeros(self.forest_size, dtype=float)  # Retardant Grid
         self.H_grid = np.zeros(self.forest_size, dtype=float)  # Elevation grid
 
@@ -213,7 +213,10 @@ class SimGrid(object):
             self.fuel_average[t] = self.__grid_average(self.F_grid)
             self.fire_average[t] = self.__grid_average(self.I_grid)
             self.retardant_average[t] = self.__grid_average(self.R_grid)
+            # print(self.fire_average[t], self.fuel_average[t])
             self.__update(t)
+
+
 
         print("===== COLOURING =====")
         self.__create_coloured_grid()
@@ -425,15 +428,19 @@ class SimGrid(object):
 
     def __update_fuel(self, t: int):
 
-        old_grid = self.F_grid.copy()
+        old_grid = np.array(self.F_grid)
 
         for x in range(self.forest_size[0]):
             for y in range(self.forest_size[1]):
-                if self.R_grid[x, y] >= self.I_grid[x, y]:
-                    self.F_grid[x, y] = old_grid[x, y]
+                if self.R_grid[x, y] > 0:
+                    if self.R_grid[x, y] >= self.I_grid[x, y]:
+                        self.F_grid[x, y] = old_grid[x, y]
+
+                    else:
+                        self.F_grid[x, y] = old_grid[x, y] + (self.R_grid[x, y] - self.I_grid[x, y])
 
                 else:
-                    self.F_grid[x, y] = old_grid[x, y] + self.R_grid[x, y] - self.I_grid[x, y]
+                    self.F_grid[x, y] = old_grid[x, y] - self.I_grid[x, y]
 
         self.F_grid[self.F_grid < 0.0001] = 0
         # self.F_grid[self.F_grid > 1] = 1
@@ -443,7 +450,7 @@ class SimGrid(object):
 
     def __update_retardant(self, t: int):
 
-        old_grid = self.R_grid.copy()
+        old_grid = np.array(self.R_grid)
         # self.R_grid = (1 - (self.__r_evap(self.R_grid)+self.I_grid))*self.R_grid
 
         evap = self.__r_evap(self.R_grid, k=self.__k)
@@ -468,26 +475,34 @@ class SimGrid(object):
     def __update_intensities(self, t: int,
                              old_fuel: Union[np.array, np.ndarray],
                              old_retardant: Union[np.array, np.ndarray]):
-
-        # TODO: Something wrong with the fire spreading
         
-        old_grid = self.I_grid.copy()
+        old_grid = np.array(self.I_grid)
 
-        delta_fuel = old_fuel - self.F_grid
-        delta_retardant = old_retardant - self.R_grid
+        delta_fuel = np.array(self.F_grid - old_fuel)
+        delta_retardant = np.array(self.R_grid - old_retardant)
 
         iavgs = self.__intensity_averages()
 
+        # print(iavgs[self.forest_size[0] // 2 - 1 : self.forest_size[0] // 2 + 2, self.forest_size[1] // 2 - 1: self.forest_size[1] // 2 + 2])
+
         for x in range(self.forest_size[0]):
             for y in range(self.forest_size[1]):
-                if x == 150 and y == 150:
-                    print(iavgs[x, y], self.I_grid[x, y], delta_fuel[x, y])
+
                 if old_fuel[x, y] > 0:
-                    self.I_grid[x, y] = old_grid[x, y] * (1 - 5*delta_fuel[x, y]
-                                                          + (delta_retardant[x, y] * self.__retardant_efficiency)) + \
-                                        iavgs[x, y]*10
+                    if self.I_grid[x, y] > 0:
+                        self.I_grid[x, y] = old_grid[x, y] + iavgs[x, y] + \
+                                            abs(delta_fuel[x, y]) + \
+                                            delta_retardant[x, y] * self.__retardant_efficiency
+
+                    else:
+                        # if self.R_grid[x, y] > 0:
+                        self.I_grid[x, y] = (old_grid[x, y] + iavgs[x, y] - old_retardant[x, y])
+
                 else:
-                    self.I_grid[x, y] = old_grid[x, y] / 15
+                    if self.I_grid[x, y] > 0:
+                        self.I_grid[x, y] = (old_grid[x, y] + iavgs[x, y])/10
+                    else:
+                        self.I_grid[x, y] = 0
 
         self.I_grid[self.I_grid < 0.0001] = 0
         self.I_grid[self.I_grid > 1] = 1
@@ -501,7 +516,7 @@ class SimGrid(object):
         else:
             old_fuel = self.__update_fuel(t)
             old_retardant = self.__update_retardant(t)
-            old_intensity = self.__update_intensities(t, old_fuel-self.F_grid, old_retardant-self.R_grid)
+            old_intensity = self.__update_intensities(t, old_fuel, old_retardant)
 
     def __create_coloured_grid(self):
 
@@ -683,7 +698,7 @@ class SimulationInterface(object):
 if __name__ == '__main__':
 
     N_SIMULATIONS = 1
-    TIME = 50
+    TIME = 150
     GRID_SIZE = (300, 300)
 
     RETARDANTS = {
@@ -722,17 +737,17 @@ if __name__ == '__main__':
     }
     RETARDANT_EFFICIENCIES = {
         'e': [
-            0.5,
+            2.0,
             1.0
         ]
     }
     WINDS = {
         'winds': [
-            (np.array([-1, -1]), 0.0),
+            (np.array([-1, -1]), 0.75),
             (np.array([-1, -1]), 0.0)
         ],
         'randomnesses': [
-            0.1,
+            1.0,
             0.5
         ]
     }
@@ -746,3 +761,4 @@ if __name__ == '__main__':
     S.place_retardants(**RETARDANTS)
     S.run_simulations()
     S.plot_statistics()
+
