@@ -30,6 +30,9 @@ class SimInterface(object):
     def run(self, name: str = None, path: str = None):
 
         self.simulation.run(name, path)
+    
+    def show_plots(self):
+        self.simulation.plot_progress()
 
     def plan_retardant_drops(self, **drops):
 
@@ -83,6 +86,7 @@ class SimInterface(object):
                            randomness: float = 0.5):
 
         self.simulation.set_elevation(slope_direction=direction, slope_angle=slope_angle, randomness=randomness)
+
 
 
 if __name__ == '__main__':
