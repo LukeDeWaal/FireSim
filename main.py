@@ -57,9 +57,9 @@ class SimInterface(object):
 
             self.simulation.retardant_along_line(t=value['time'],
                                                  amount=value['amount'],
-                                                 length=value['length'],
+                                                 velocity=value['velocity'],
                                                  p_0=value['start'],
-                                                 v=value['direction'],
+                                                 p_1=value['end'],
                                                  shape=shape,
                                                  randomness=value['randomness'])
 
@@ -91,69 +91,8 @@ class SimInterface(object):
 
 if __name__ == '__main__':
 
-    TIME = 350
+    TIME = 50
     GRID_SIZE = (300, 300)
-
-    # RETARDANTS = {
-    #     'amounts': [
-    #         0.99,
-    #         0.7
-    #     ],
-    #     'toplefts': [
-    #         (65, 0),
-    #         (0, 120)
-    #     ],
-    #     'sizes': [
-    #         (25, 200),
-    #         (100, 25)
-    #     ],
-    #     'randomnesses': [
-    #         0.66,
-    #         0.66
-    #     ]
-    # }
-    # ELEVATIONS = {
-    #     'elevations': [
-    #         ([-1, 0], np.pi / 6),
-    #         ([-1, -1], np.pi / 4)
-    #     ],
-    #     'randomnesses': [
-    #         0.0,
-    #         0.0
-    #     ]
-    # }
-    # EVAPORATION_CONSTANTS = {
-    #     'k': [
-    #         0.001,
-    #         0.002
-    #     ]
-    # }
-    # RETARDANT_EFFICIENCIES = {
-    #     'e': [
-    #         0.2,
-    #         0.15
-    #     ]
-    # }
-    # WINDS = {
-    #     'winds': [
-    #         (np.array([-1, -1]), 0.75),
-    #         (np.array([-1, -1]), 0.0)
-    #     ],
-    #     'randomnesses': [
-    #         1.0,
-    #         0.5
-    #     ]
-    # }
-    #
-    # S = SimulationInterface(N_SIMULATIONS, TIME, GRID_SIZE)
-    # S.set_elevations(**ELEVATIONS)
-    # S.set_evaporation_constants(**EVAPORATION_CONSTANTS)
-    # S.set_retardant_efficiencies(**RETARDANT_EFFICIENCIES)
-    # S.time_drops([25, 2], [100, 100], [100]*2, [np.array([80, 200], dtype=np.int)]*2, [np.array([0, -1])]*2, [0.4]*2, kernel_shapes=[(9, 9), (5, 5)])
-    # S.set_winds(**WINDS)
-    # S.place_retardants(**RETARDANTS)
-    # S.run_simulations()
-    # S.plot_statistics()
 
     S = SimInterface(TIME, GRID_SIZE,
                      maxfuel=4,
@@ -174,34 +113,26 @@ if __name__ == '__main__':
     S.plan_retardant_drops(
         drop_1={
             'time': 10,
-            'direction': [0, 1],
+            'velocity': 15,
             'amount': 75,
             'start': [90, 50],
-            'length': 200,
+            'end': [90, 250],
             'width': 5
         },
         drop_2={
             'time': 20,
-            'direction': [0, 1],
-            'amount': 75,
-            'start': [85, 25],
-            'length': 250,
-            'width': 7
+            'velocity': 10,
+            'amount': 120,
+            'start': [85, 50],
+            'end': [85, 250],
+            'width': 5
         },
         drop_3={
-            'time': 40,
-            'direction': [0, 1],
-            'amount': 150,
-            'start': [75, 0],
-            'length': 200,
-            'width': 10
-        },
-        drop_4={
-            'time': 100,
-            'direction': [0, 1],
-            'amount': 100,
-            'start': [40, 0],
-            'length': 200,
+            'time': 30,
+            'velocity': 5,
+            'amount': 75,
+            'start': [70, 50],
+            'end': [70, 250],
             'width': 5
         }
     )

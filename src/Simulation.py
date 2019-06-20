@@ -261,6 +261,12 @@ class SimGrid(object):
         # plt.show()
 
     def __dryness_distribution(self, n_strips: int, randomness: int = 5):
+        """
+
+        :param n_strips:
+        :param randomness:
+        :return:
+        """
 
         for n in range(n_strips):
 
@@ -434,36 +440,52 @@ class SimGrid(object):
 
         return list(indices)
 
-    def retardant_along_line(self, t: int, amount: float, length: float, p_0: Union[np.array, np.ndarray],
-                             v: Union[np.array, np.ndarray], shape: tuple = (3, 3), randomness: float = 0.2):
+    def retardant_along_line(self, t: int,
+                             amount: float,
+                             p_0: Union[np.array, np.ndarray],
+                             p_1:  Union[np.array, np.ndarray],
+                             velocity: float,
+                             shape: tuple = (3, 3),
+                             randomness: float = 0.2):
         """
 
         :param t:
         :param amount:
         :param length:
         :param p_0:
-        :param v:
+        :param direction:
         :param shape:
         :param randomness:
         :return:
         """
 
-        indices = self.__intersection_point_finder(self.main_grid[t, :, :, 2], p_0, v, length)
+        p_1 = np.array(p_1)
+        p_0 = np.array(p_0)
+        direction = p_1 - p_0
+        length = np.linalg.norm(direction)
+        direction = (p_1 - p_0)/length
+
+        indices = self.__intersection_point_finder(self.main_grid[t, :, :, 2], p_0, direction, length)
         amount_per_pixel = amount / len(indices)
+
+        time = int(np.ceil(length/velocity))
 
         result = np.zeros(self.forest_size, dtype=float)
 
-        for x, y in indices:
-            values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), shape)
+        for t in range(time):
+            for x, y in indices:
+                values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), shape)
 
-            result[idc[0][0]:idc[0][1] + 1, idc[1][0]:idc[1][1] + 1] = values + 2 * np.random.uniform(
-                randomness, 1 - randomness, result_shape) * amount_per_pixel
+                result[idc[0][0]:idc[0][1] + 1, idc[1][0]:idc[1][1] + 1] = values + 2 * np.random.uniform(
+                    randomness, 1 - randomness, result_shape) * amount_per_pixel
 
-        if t not in self.__retardant_droppings.keys():
-            self.__retardant_droppings[t] = [result]
+            if t not in self.__retardant_droppings.keys():
+                self.__retardant_droppings[t] = [result]
 
-        else:
-            self.__retardant_droppings[t].append(result)
+            else:
+                self.__retardant_droppings[t].append(result)
+
+            result = np.zeros(self.forest_size, dtype=float)
 
     def __intensity_averages(self):
         """
@@ -652,7 +674,7 @@ class SimGrid(object):
         :param path: path to older in which to store
         """
 
-        im.mimsave((path + f'/{name}.gif'), self.coloured)
+        im.mimsave((path + f'/{name}.gif'), self.coloured, duration=0.2)
 
 
 
