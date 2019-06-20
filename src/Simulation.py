@@ -2,6 +2,7 @@
 import datetime
 import os
 from typing import Union
+
 import imageio as im
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,6 +10,11 @@ from tqdm import tqdm
 
 plt.interactive(True)
 print("Interactive Mode: ", plt.isinteractive())
+
+
+# TODO: Refactor
+# TODO: Tracking fire shape, make algorithm to drop retardant on optimal spots
+# TODO: Make a GUI for easy editability
 
 
 class SimGrid(object):
@@ -51,7 +57,8 @@ class SimGrid(object):
         self.I_grid = np.zeros(self.forest_size, dtype=float)  # Intensity Grid
         self.I_grid[self.forest_size[0] // 2, self.forest_size[1] // 2] = 0.1
         self.R_grid = np.zeros(self.forest_size, dtype=float)  # Retardant Grid
-        self.H_grid = np.zeros(self.forest_size, dtype=float)  # Elevation grid
+        self.D_grid = np.random.uniform(0.0, 0.1, self.forest_size)  # Fuel Dryness Index
+        self.__dryness_distribution(5, 4)
 
         # Final coloured array
         self.__fire_rgb = [
@@ -198,7 +205,7 @@ class SimGrid(object):
         """
 
         if path is None:
-            path = '\\'.join(os.getcwd().split('\\')[:-1]) + '\\simulations\\'
+            path = '\\'.join(os.getcwd().split('\\')) + '\\simulations\\'
 
         if name is None:
             time = datetime.datetime.now()
@@ -253,6 +260,29 @@ class SimGrid(object):
         fig.tight_layout()
         # plt.show()
 
+    def __dryness_distribution(self, n_strips: int, randomness: int = 5):
+
+        for n in range(n_strips):
+
+            xs = np.random.randint(0, self.D_grid.shape[0], size=2)
+            ys = np.random.randint(0, self.D_grid.shape[1], size=2)
+
+            p_0 = np.array([xs[0], ys[0]])
+            p_1 = np.array([xs[1], ys[1]])
+
+            v = p_1 - p_0
+
+            idcs = [list(i) for i in self.__intersection_point_finder(self.D_grid, p_0, v, np.linalg.norm(v))]
+
+            for i in range(len(idcs)):
+                idcs[i][0] += np.random.randint(-randomness, randomness)
+                idcs[i][1] += np.random.randint(-randomness, randomness)
+
+            for x, y in idcs:
+                values, idc, result_shape = self.__extract_kernel(self.D_grid, (x, y), size=(3, 3))
+
+                self.D_grid[idc[0][0]:idc[0][1] + 1, idc[1][0]:idc[1][1] + 1] = values + np.random.uniform(0.0, 0.2, result_shape)
+
     @staticmethod
     def __grid_average(grid: Union[np.array, np.ndarray]):
         """
@@ -287,16 +317,17 @@ class SimGrid(object):
         self.main_grid[0, :, :, 0] = np.array(self.F_grid)
         self.main_grid[0, :, :, 1] = np.array(self.I_grid)
         self.main_grid[0, :, :, 2] = np.array(self.R_grid)
-        self.main_grid[0, :, :, 3] = np.array(self.H_grid)
+        self.main_grid[0, :, :, 3] = np.array(self.D_grid)
 
-    def __extract_kernel(self, grid: Union[np.array, np.ndarray], position: tuple, size: tuple = (3, 3)):
+    @staticmethod
+    def __extract_kernel(grid: Union[np.array, np.ndarray], position: tuple, size: tuple = (3, 3)):
 
         size = list(size)
 
         if grid.shape[0] >= position[0] >= 0 and grid.shape[1] >= position[1] >= 0:
 
-            grid_idx = [[position[0]-size[0]//2, position[0]+size[0]//2],
-                        [position[1]-size[1]//2, position[1]+size[1]//2]]
+            grid_idx = [[position[0] - size[0] // 2, position[0] + size[0] // 2],
+                        [position[1] - size[1] // 2, position[1] + size[1] // 2]]
 
             if grid_idx[0][0] < 0:
                 grid_idx[0][0] = 0
@@ -314,14 +345,16 @@ class SimGrid(object):
 
             size[1] = grid_idx[1][1] - grid_idx[1][0] + 1
 
-            kernel = grid[grid_idx[0][0]:grid_idx[0][1]+1, grid_idx[1][0]:grid_idx[1][1]+1]
+            kernel = grid[grid_idx[0][0]:grid_idx[0][1] + 1, grid_idx[1][0]:grid_idx[1][1] + 1]
 
             return kernel, grid_idx, tuple(size)
 
         else:
+            print(position)
             raise IndexError("Coordinate outside grid")
 
-    def __kernel_average(self, grid: Union[np.array, np.ndarray], position: tuple, base_weights: bool = True, directional_weights: bool = True):
+    def __kernel_average(self, grid: Union[np.array, np.ndarray], position: tuple, base_weights: bool = True,
+                         directional_weights: bool = True):
         """
         Method to calculate a weighted average of a 3x3 kernel
         :param grid: grid upon which the calculation must be performed
@@ -356,7 +389,8 @@ class SimGrid(object):
 
         if directional_weights and base_weights:
             new_weights = self.__weights[weight_idx[0][0]:weight_idx[0][1], weight_idx[1][0]:weight_idx[1][1]] + \
-                          self.__random_kernel(tuple(size), (-self.__gust_factor, self.__gust_factor)) + \
+                          self.__random_kernel(tuple(size),
+                                               (-self.__gust_factor, self.__gust_factor)) + \
                           self.__random_kernel(tuple(size),
                                                (-self.__elevation_shift_intensity, self.__elevation_shift_intensity))
 
@@ -386,7 +420,7 @@ class SimGrid(object):
                                     max_iter: int = 200):
 
         indices = set()
-        v = v /  np.linalg.norm(v)
+        v = v / np.linalg.norm(v)
 
         for n in np.linspace(0, length, max_iter):
             p_i = p_0 + n * v
@@ -400,17 +434,30 @@ class SimGrid(object):
 
         return list(indices)
 
-    def retardant_along_line(self, t: int, amount: float, length: float, p_0: Union[np.array, np.ndarray], v: Union[np.array, np.ndarray], shape: tuple = (3, 3), randomness: float = 0.2):
+    def retardant_along_line(self, t: int, amount: float, length: float, p_0: Union[np.array, np.ndarray],
+                             v: Union[np.array, np.ndarray], shape: tuple = (3, 3), randomness: float = 0.2):
+        """
+
+        :param t:
+        :param amount:
+        :param length:
+        :param p_0:
+        :param v:
+        :param shape:
+        :param randomness:
+        :return:
+        """
 
         indices = self.__intersection_point_finder(self.main_grid[t, :, :, 2], p_0, v, length)
-        amount_per_pixel = amount/len(indices)
+        amount_per_pixel = amount / len(indices)
 
         result = np.zeros(self.forest_size, dtype=float)
 
         for x, y in indices:
             values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), shape)
-            result[idc[0][0]:idc[0][1]+1, idc[1][0]:idc[1][1]+1] = values + 2*np.random.uniform(
-                randomness, 1-randomness, result_shape)*amount_per_pixel
+
+            result[idc[0][0]:idc[0][1] + 1, idc[1][0]:idc[1][1] + 1] = values + 2 * np.random.uniform(
+                randomness, 1 - randomness, result_shape) * amount_per_pixel
 
         if t not in self.__retardant_droppings.keys():
             self.__retardant_droppings[t] = [result]
@@ -433,6 +480,11 @@ class SimGrid(object):
         return avgs
 
     def __update_fuel(self, t: int):
+        """
+
+        :param t:
+        :return:
+        """
 
         old_grid = np.array(self.F_grid)
 
@@ -443,10 +495,10 @@ class SimGrid(object):
                         self.F_grid[x, y] = old_grid[x, y]
 
                     else:
-                        self.F_grid[x, y] = old_grid[x, y] + (self.R_grid[x, y] - self.I_grid[x, y])
+                        self.F_grid[x, y] = old_grid[x, y] + (self.R_grid[x, y] - self.I_grid[x, y])*(1 + self.D_grid[x, y])
 
                 else:
-                    self.F_grid[x, y] = old_grid[x, y] - self.I_grid[x, y]
+                    self.F_grid[x, y] = old_grid[x, y] - self.I_grid[x, y]*(1 + self.D_grid[x, y])
 
         self.F_grid[self.F_grid < 0.0001] = 0
         # self.F_grid[self.F_grid > 1] = 1
@@ -455,6 +507,11 @@ class SimGrid(object):
         return old_grid
 
     def __update_retardant(self, t: int):
+        """
+
+        :param t:
+        :return:
+        """
 
         old_grid = np.array(self.R_grid)
         # self.R_grid = (1 - (self.__r_evap(self.R_grid)+self.I_grid))*self.R_grid
@@ -466,7 +523,8 @@ class SimGrid(object):
                 if self.R_grid[x, y] >= self.I_grid[x, y]:
                     self.R_grid[x, y] = (1 - (evap[x, y] + self.__kernel_average(self.I_grid, (x, y),
                                                                                  base_weights=False,
-                                                                                 directional_weights=False))) * self.R_grid[x, y]
+                                                                                 directional_weights=False))) * \
+                                        self.R_grid[x, y]
 
                 else:
                     self.R_grid[x, y] = 0
@@ -483,7 +541,14 @@ class SimGrid(object):
     def __update_intensities(self, t: int,
                              old_fuel: Union[np.array, np.ndarray],
                              old_retardant: Union[np.array, np.ndarray]):
-        
+        """
+
+        :param t:
+        :param old_fuel:
+        :param old_retardant:
+        :return:
+        """
+
         old_grid = np.array(self.I_grid)
 
         delta_fuel = np.array(self.F_grid - old_fuel)
@@ -508,7 +573,7 @@ class SimGrid(object):
 
                 else:
                     if self.I_grid[x, y] > 0:
-                        self.I_grid[x, y] = (old_grid[x, y] + iavgs[x, y])/10
+                        self.I_grid[x, y] = (old_grid[x, y] + iavgs[x, y]) / 10
                     else:
                         self.I_grid[x, y] = 0
 
@@ -588,12 +653,6 @@ class SimGrid(object):
         """
 
         im.mimsave((path + f'/{name}.gif'), self.coloured)
-
-
-# TODO: Tweak parameters to make simulation better
-# TODO: Add Aircraft Dropping
-# TODO: Tracking fire shape, make algorithm to drop retardant on optimal spots
-
 
 
 
