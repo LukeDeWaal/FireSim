@@ -88,10 +88,9 @@ class SimInterface(object):
         self.simulation.set_elevation(slope_direction=direction, slope_angle=slope_angle, randomness=randomness)
 
 
-
 if __name__ == '__main__':
 
-    TIME = 200
+    TIME = 150
     GRID_SIZE = (300, 300)
 
     S = SimInterface(TIME, GRID_SIZE,
@@ -112,29 +111,29 @@ if __name__ == '__main__':
 
     S.plan_retardant_drops(
         drop_1={
-            'time': 10,
-            'velocity': 15,
-            'amount': 20,
-            'start': [90, 50],
-            'end': [90, 250],
-            'width': 5
-        },
-        drop_2={
-            'time': 20,
+            'time': 0,
             'velocity': 10,
-            'amount': 30,
-            'start': [85, 50],
-            'end': [85, 250],
-            'width': 5
-        },
-        drop_3={
-            'time': 60,
-            'velocity': 5,
-            'amount': 50,
-            'start': [70, 50],
-            'end': [70, 250],
+            'amount': 1,
+            'start': [90, 50],
+            'end': [180, 250],
             'width': 5
         }
+        # drop_2={
+        #     'time': 20,
+        #     'velocity': 10,
+        #     'amount': 30,
+        #     'start': [85, 50],
+        #     'end': [85, 250],
+        #     'width': 5
+        # },
+        # drop_3={
+        #     'time': 60,
+        #     'velocity': 5,
+        #     'amount': 50,
+        #     'start': [70, 50],
+        #     'end': [70, 250],
+        #     'width': 5
+        # }
     )
 
     S.run()

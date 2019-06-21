@@ -276,15 +276,17 @@ class SimGrid(object):
             p_0 = np.array([xs[0], ys[0]])
             p_1 = np.array([xs[1], ys[1]])
 
-            v = p_1 - p_0
-
-            idcs = [list(i) for i in self.__intersection_point_finder(self.D_grid, p_0, v, np.linalg.norm(v))]
+            idcs = [list(i) for i in self.__intersection_point_finder(self.D_grid, p_0, p_1)]
 
             for i in range(len(idcs)):
                 idcs[i][0] += np.random.randint(-randomness, randomness)
                 idcs[i][1] += np.random.randint(-randomness, randomness)
 
             for x, y in idcs:
+
+                if x < 0 or x >= self.D_grid.shape[0] or y < 0 or y >= self.D_grid.shape[1]:
+                    continue
+
                 values, idc, result_shape = self.__extract_kernel(self.D_grid, (x, y), size=(3, 3))
 
                 self.D_grid[idc[0][0]:idc[0][1] + 1, idc[1][0]:idc[1][1] + 1] = values + np.random.uniform(0.0, 0.2, result_shape)
@@ -356,7 +358,7 @@ class SimGrid(object):
             return kernel, grid_idx, tuple(size)
 
         else:
-            print(position)
+
             raise IndexError("Coordinate outside grid")
 
     def __kernel_average(self, grid: Union[np.array, np.ndarray], position: tuple, base_weights: bool = True,
@@ -421,8 +423,7 @@ class SimGrid(object):
     @staticmethod
     def __intersection_point_finder(grid: Union[np.array, np.ndarray],
                                     p_0: Union[np.array, np.ndarray],
-                                    v: Union[np.array, np.ndarray],
-                                    length: float,
+                                    p_1: Union[np.array, np.ndarray],
                                     max_iter: int = 200):
 
         """
@@ -435,20 +436,43 @@ class SimGrid(object):
         :return: [(i0, j0), (i1, j1], ..., (in, jn)
         """
 
-        indices = set()
-        v = v / np.linalg.norm(v)
+        indices = []
+
+        length = np.linalg.norm(p_1-p_0)
+        v = (p_1 - p_0)/length
 
         for n in np.linspace(0, length, max_iter):
             p_i = p_0 + n * v
 
             if 0 <= p_i[0] <= grid.shape[0] and 0 <= p_i[1] <= grid.shape[1]:
                 rounded = p_i.round()
-                indices.add(tuple(rounded.astype(int)))
+                val = tuple(rounded.astype(int))
+
+                if val not in indices:
+                    indices.append(val)
 
             else:
                 break
 
-        return list(indices)
+        return indices
+
+    @staticmethod
+    def __get_kernel_indices(idcs: list, shape: tuple = (3, 3)):
+
+        duplicate_check = set()
+        new_idcs = []
+
+        for i, j in idcs:
+            coordinates = []
+            for di in range(-shape[0]//2, shape[0]//2+1):
+                for dj in range(-shape[1]//2, shape[1]//2+1):
+                    idx = (i+di, j+dj)
+
+                    if idx not in duplicate_check:
+                        duplicate_check.add(idx)
+                        coordinates.append(idx)
+            new_idcs.append(coordinates)
+        return new_idcs
 
     def retardant_along_line(self, t: int,
                              amount: float,
@@ -473,29 +497,30 @@ class SimGrid(object):
         p_0 = np.array(p_0)
         direction = p_1 - p_0
         length = np.linalg.norm(direction)
-        direction = (p_1 - p_0)/length
 
-        indices = self.__intersection_point_finder(self.main_grid[t, :, :, 2], p_0, direction, length)
-        amount_per_pixel = amount / len(indices)
+        indices = self.__intersection_point_finder(self.main_grid[t, :, :, 2], p_0, p_1)
+        kernel_indices = self.__get_kernel_indices(indices, shape)
 
         time = int(np.ceil(length/velocity))
-
+        time_chunk = len(kernel_indices)//time
         result = np.zeros(self.forest_size, dtype=float)
 
-        for t in range(time):
-            for x, y in indices:
-                values, idc, result_shape = self.__extract_kernel(self.main_grid[t, :, :, 2], (x, y), shape)
+        for t in range(time-1):
 
-                result[idc[0][0]:idc[0][1] + 1, idc[1][0]:idc[1][1] + 1] = values + 2 * np.random.uniform(
-                    randomness, 1 - randomness, result_shape) * amount_per_pixel
+            for idx, coordinates in enumerate(kernel_indices[time_chunk*t:time_chunk*(t+1)]):
 
-            if t not in self.__retardant_droppings.keys():
-                self.__retardant_droppings[t] = [result]
+                for x, y in coordinates:
+
+                    result[x, y] += np.random.uniform(0, 1) * amount
+
+            if str(t) not in self.__retardant_droppings.keys():
+                self.__retardant_droppings[str(t)] = [result, ]
 
             else:
-                self.__retardant_droppings[t].append(result)
+                self.__retardant_droppings[str(t)].append(result)
 
             result = np.zeros(self.forest_size, dtype=float)
+
 
     def __intensity_averages(self):
         """
@@ -561,8 +586,9 @@ class SimGrid(object):
                 else:
                     self.R_grid[x, y] = 0
 
-        if t in self.__retardant_droppings.keys():
-            for value in self.__retardant_droppings[t]:
+        if str(t) in self.__retardant_droppings.keys():
+
+            for value in self.__retardant_droppings[str(t)]:
                 self.R_grid += value
 
         self.R_grid[self.R_grid < 0.0001] = 0
