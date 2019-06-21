@@ -30,7 +30,7 @@ class SimInterface(object):
     def run(self, name: str = None, path: str = None):
 
         self.simulation.run(name, path)
-    
+
     def show_plots(self):
         self.simulation.plot_progress()
 
