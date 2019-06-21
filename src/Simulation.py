@@ -425,6 +425,16 @@ class SimGrid(object):
                                     length: float,
                                     max_iter: int = 200):
 
+        """
+        Function to calculate all cells the line intersects through linear inerpolation
+        :param grid: Grid in which the interpolation has to be performed
+        :param p_0: starting position
+        :param v: velocity of the aircraft
+        :param length: length of retardant drop
+        :param max_iter: maximum amount of samples
+        :return: [(i0, j0), (i1, j1], ..., (in, jn)
+        """
+
         indices = set()
         v = v / np.linalg.norm(v)
 
@@ -674,7 +684,7 @@ class SimGrid(object):
         :param path: path to older in which to store
         """
 
-        im.mimsave((path + f'/{name}.gif'), self.coloured, duration=0.2)
+        im.mimsave((path + f'/{name}.gif'), self.coloured, duration=0.075)
 
 
 

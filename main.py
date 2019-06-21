@@ -91,7 +91,7 @@ class SimInterface(object):
 
 if __name__ == '__main__':
 
-    TIME = 50
+    TIME = 200
     GRID_SIZE = (300, 300)
 
     S = SimInterface(TIME, GRID_SIZE,
@@ -114,7 +114,7 @@ if __name__ == '__main__':
         drop_1={
             'time': 10,
             'velocity': 15,
-            'amount': 75,
+            'amount': 20,
             'start': [90, 50],
             'end': [90, 250],
             'width': 5
@@ -122,15 +122,15 @@ if __name__ == '__main__':
         drop_2={
             'time': 20,
             'velocity': 10,
-            'amount': 120,
+            'amount': 30,
             'start': [85, 50],
             'end': [85, 250],
             'width': 5
         },
         drop_3={
-            'time': 30,
+            'time': 60,
             'velocity': 5,
-            'amount': 75,
+            'amount': 50,
             'start': [70, 50],
             'end': [70, 250],
             'width': 5
