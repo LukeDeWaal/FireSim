@@ -31,16 +31,6 @@ class SimGrid(object):
                                    [1 / np.sqrt(2), 1, 1 / np.sqrt(2)]],
                                   dtype=float)  # Weights used for weighted average
 
-        self.wind = {
-            'direction': (1, 0),
-            'magnitude': 0
-        }
-
-        self.elevation = {
-            'direction': (1, 0),
-            'slope': 0.0
-        }
-
         self.__retardant_efficiency = 5.0  # Lower numbers will reduce effectiveness
         self.__k = 0.001  # lower numbers will create less evaporation
         self.__gust_factor = 0  # Higher numbers will make wind more random
@@ -159,13 +149,12 @@ class SimGrid(object):
         """
         if len(direction) == 2:
             direction = np.array(direction, dtype=float)
-            self.wind['direction'] = direction / np.linalg.norm(direction)
+            direction = direction / np.linalg.norm(direction)
         else:
             raise ValueError("Wrong Shape input for direction")
 
         if 1 >= magnitude >= 0:
-            self.wind['magnitude'] = magnitude / 5
-
+            pass
         else:
             raise ValueError("Magnitude has to be between 1 and 0")
 
@@ -184,12 +173,12 @@ class SimGrid(object):
 
         if len(slope_direction) == 2:
             direction = np.array(slope_direction, dtype=float)
-            self.elevation['direction'] = direction / np.linalg.norm(direction)
+            direction = direction / np.linalg.norm(direction)
         else:
             raise ValueError("Wrong Shape input for direction")
 
         if np.pi / 2 > slope_angle >= 0:
-            self.elevation['slope'] = slope_angle
+            pass
 
         else:
             raise ValueError("Magnitude has to be between 1 and 0")
@@ -505,22 +494,21 @@ class SimGrid(object):
         time_chunk = len(kernel_indices)//time
         result = np.zeros(self.forest_size, dtype=float)
 
-        for t in range(time-1):
+        for idx, ti in enumerate(range(t, t+time-1)):
 
-            for idx, coordinates in enumerate(kernel_indices[time_chunk*t:time_chunk*(t+1)]):
+            for coordinates in kernel_indices[time_chunk*idx:time_chunk*(idx+1)]:
 
                 for x, y in coordinates:
 
                     result[x, y] += np.random.uniform(0, 1) * amount
 
-            if str(t) not in self.__retardant_droppings.keys():
-                self.__retardant_droppings[str(t)] = [result, ]
+            if str(ti) not in self.__retardant_droppings.keys():
+                self.__retardant_droppings[str(ti)] = [result, ]
 
             else:
-                self.__retardant_droppings[str(t)].append(result)
+                self.__retardant_droppings[str(ti)].append(result)
 
             result = np.zeros(self.forest_size, dtype=float)
-
 
     def __intensity_averages(self):
         """

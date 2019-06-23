@@ -111,29 +111,29 @@ if __name__ == '__main__':
 
     S.plan_retardant_drops(
         drop_1={
-            'time': 0,
+            'time': 5,              # Frame at which to drop
+            'velocity': 10,         # Pixels/frame
+            'amount': 1,            # Average amount per cell; randomisation applies
+            'start': [50, 50],      # Starting point of the drop
+            'end': [50, 250],       # Ending point of the drop
+            'width': 5              # Width of the retardant line (only uneven numbers work)
+        },
+        drop_2={
+            'time': 15,
             'velocity': 10,
             'amount': 1,
-            'start': [90, 50],
-            'end': [180, 250],
+            'start': [50, 50],
+            'end': [250, 50],
+            'width': 5
+        },
+        drop_3={
+            'time': 25,
+            'velocity': 5,
+            'amount': 1,
+            'start': [50, 50],
+            'end': [250, 250],
             'width': 5
         }
-        # drop_2={
-        #     'time': 20,
-        #     'velocity': 10,
-        #     'amount': 30,
-        #     'start': [85, 50],
-        #     'end': [85, 250],
-        #     'width': 5
-        # },
-        # drop_3={
-        #     'time': 60,
-        #     'velocity': 5,
-        #     'amount': 50,
-        #     'start': [70, 50],
-        #     'end': [70, 250],
-        #     'width': 5
-        # }
     )
 
     S.run()
