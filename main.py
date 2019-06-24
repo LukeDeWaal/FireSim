@@ -34,6 +34,9 @@ class SimInterface(object):
     def show_plots(self):
         self.simulation.plot_progress()
 
+    def set_fire(self, amount: float, position: tuple):
+        self.simulation.set_fire(amount, position)
+
     def plan_retardant_drops(self, **drops):
 
         for ID, value in drops.items():
@@ -87,52 +90,71 @@ class SimInterface(object):
 
         self.simulation.set_elevation(slope_direction=direction, slope_angle=slope_angle, randomness=randomness)
 
+    def set_dry_patch(self, top_left: tuple, bottom_right: tuple, amount: float, randomness=0.3):
+
+        self.simulation.set_dry_patch(top_left, bottom_right, amount, randomness)
+
+    def get_statistics(self):
+
+        self.simulation.plot_progress()
+
 
 if __name__ == '__main__':
 
-    TIME = 150
+    TIME = 250
     GRID_SIZE = (300, 300)
 
     S = SimInterface(TIME, GRID_SIZE,
                      maxfuel=4,
                      evaporation=0.00075,
-                     efficiency=0.25,
+                     efficiency=0.5,
                      wind={
                          'direction': [-1, -1],
-                         'magnitude': 0.33,
+                         'magnitude': 0.66,
                          'randomness': 0.5
                      },
                      elevation={
                          'direction': [1, 1],
-                         'slope_angle': 30 * np.pi / 180,
+                         'slope_angle': 0,#30 * np.pi / 180,
                          'randomness': 0.5
                      }
                      )
 
+    S.set_fire(0.1, (GRID_SIZE[0] // 2, GRID_SIZE[1] // 2))
+    S.set_fire(0.1, (GRID_SIZE[0] // 2+30, GRID_SIZE[1] // 2+30))
+
     S.plan_retardant_drops(
         drop_1={
-            'time': 5,              # Frame at which to drop
+            'time': 50,              # Frame at which to drop
             'velocity': 10,         # Pixels/frame
-            'amount': 1,            # Average amount per cell; randomisation applies
-            'start': [50, 50],      # Starting point of the drop
-            'end': [50, 250],       # Ending point of the drop
-            'width': 5              # Width of the retardant line (only uneven numbers work)
+            'amount': 1.5,            # Average amount per cell; randomisation applies
+            'start': [80, 80],      # Starting point of the drop
+            'end': [100, 250],       # Ending point of the drop
+            'width': 7              # Width of the retardant line (only uneven numbers work)
         },
         drop_2={
-            'time': 15,
+            'time': 60,
             'velocity': 10,
-            'amount': 1,
-            'start': [50, 50],
-            'end': [250, 50],
-            'width': 5
+            'amount': 1.5,
+            'start': [80, 80],
+            'end': [250, 100],
+            'width': 7
         },
         drop_3={
-            'time': 25,
-            'velocity': 5,
-            'amount': 1,
-            'start': [50, 50],
-            'end': [250, 250],
-            'width': 5
+            'time': 80,              # Frame at which to drop
+            'velocity': 10,         # Pixels/frame
+            'amount': 1.5,            # Average amount per cell; randomisation applies
+            'start': [100, 245],      # Starting point of the drop
+            'end': [250, 100],       # Ending point of the drop
+            'width': 5              # Width of the retardant line (only uneven numbers work)
+        },
+        drop_4 = {
+            'time': 90,
+            'velocity': 10,
+            'amount': 1.5,
+            'start': [100, 250],
+            'end': [80, 80],
+            'width': 7
         }
     )
 

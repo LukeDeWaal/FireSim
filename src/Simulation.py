@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-plt.interactive(True)
-print("Interactive Mode: ", plt.isinteractive())
+# plt.interactive(True)
+# print("Interactive Mode: ", plt.isinteractive())
 
 
 # TODO: Refactor
@@ -45,7 +45,6 @@ class SimGrid(object):
         # These grids will be temporary grids used for calculations
         self.F_grid = np.random.uniform(0.05, 1, self.forest_size) * self.__maxfuel  # Fuel Grid
         self.I_grid = np.zeros(self.forest_size, dtype=float)  # Intensity Grid
-        self.I_grid[self.forest_size[0] // 2, self.forest_size[1] // 2] = 0.1
         self.R_grid = np.zeros(self.forest_size, dtype=float)  # Retardant Grid
         self.D_grid = np.random.uniform(0.0, 0.1, self.forest_size)  # Fuel Dryness Index
         self.__dryness_distribution(5, 4)
@@ -100,6 +99,10 @@ class SimGrid(object):
         """
 
         self.F_grid[topleft[0]:topleft[0] + size[0], topleft[1]: topleft[1] + size[1]] = np.zeros(size, dtype=float)
+
+    def set_fire(self, intensity: float, position: tuple):
+
+        self.I_grid[position[0], position[1]] = intensity
 
     def place_retardant(self, amount: float, topleft: tuple, size: tuple, randomness: float = 0):
         """
@@ -248,6 +251,12 @@ class SimGrid(object):
 
         fig.tight_layout()
         # plt.show()
+
+    def set_dry_patch(self, top_left: tuple, bottom_right: tuple, amount: float, randomness=0.3):
+
+        for x in range(top_left[0], bottom_right[0]+1):
+            for y in range(top_left[1], bottom_right[1]+1):
+                self.D_grid[x, y] = amount + np.random.uniform(-randomness, randomness)
 
     def __dryness_distribution(self, n_strips: int, randomness: int = 5):
         """
@@ -491,10 +500,10 @@ class SimGrid(object):
         kernel_indices = self.__get_kernel_indices(indices, shape)
 
         time = int(np.ceil(length/velocity))
-        time_chunk = len(kernel_indices)//time
+        time_chunk = len(kernel_indices)//time+1
         result = np.zeros(self.forest_size, dtype=float)
 
-        for idx, ti in enumerate(range(t, t+time-1)):
+        for idx, ti in enumerate(range(t, t+time)):
 
             for coordinates in kernel_indices[time_chunk*idx:time_chunk*(idx+1)]:
 
@@ -609,7 +618,7 @@ class SimGrid(object):
 
                 if old_fuel[x, y] > 0:
                     if self.I_grid[x, y] > 0:
-                        self.I_grid[x, y] = old_grid[x, y] + iavgs[x, y] + \
+                        self.I_grid[x, y] = old_grid[x, y] + iavgs[x, y]/(1+self.__retardant_efficiency) + \
                                             abs(delta_fuel[x, y]) + \
                                             delta_retardant[x, y] * self.__retardant_efficiency
 
@@ -691,14 +700,14 @@ class SimGrid(object):
 
                 self.coloured[t, x, y, :] = colour
 
-    def __save_simulation(self, name: str, path: str):
+    def __save_simulation(self, name: str, path: str, output: str = 'mp4'):
         """
         Save simulation as gif
         :param name: name of file
         :param path: path to older in which to store
         """
 
-        im.mimsave((path + f'/{name}.gif'), self.coloured, duration=0.075)
+        im.mimsave((path + f'/{name}.{output}'), self.coloured, fps=15, macro_block_size=15)
 
 
 
