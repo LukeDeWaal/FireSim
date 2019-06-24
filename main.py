@@ -31,6 +31,10 @@ class SimInterface(object):
 
         self.simulation.run(name, path)
 
+    def clear_space(self, topleft: tuple, size: tuple):
+
+        self.simulation.clear_space(topleft, size)
+
     def show_plots(self):
         self.simulation.plot_progress()
 
@@ -102,60 +106,63 @@ class SimInterface(object):
 if __name__ == '__main__':
 
     TIME = 250
-    GRID_SIZE = (300, 300)
+    GRID_SIZE = (200, 400)
 
     S = SimInterface(TIME, GRID_SIZE,
                      maxfuel=4,
                      evaporation=0.00075,
-                     efficiency=0.5,
+                     efficiency=1.0,
                      wind={
-                         'direction': [-1, -1],
-                         'magnitude': 0.66,
-                         'randomness': 0.5
+                         'direction': [0, 1],
+                         'magnitude': 0.75,
+                         'randomness': 0.4
                      },
                      elevation={
-                         'direction': [1, 1],
-                         'slope_angle': 0,#30 * np.pi / 180,
+                         'direction': [0, 1],
+                         'slope_angle': 10 * np.pi / 180,
                          'randomness': 0.5
                      }
-                     )
+                )
 
-    S.set_fire(0.1, (GRID_SIZE[0] // 2, GRID_SIZE[1] // 2))
-    S.set_fire(0.1, (GRID_SIZE[0] // 2+30, GRID_SIZE[1] // 2+30))
+    S.set_fire(0.1, (150, 10))
+
+    # S.clear_space((25, 275), (20, 20))
+    S.set_dry_patch((0, 50), (299, 500), amount=0.5)
 
     S.plan_retardant_drops(
         drop_1={
-            'time': 50,              # Frame at which to drop
-            'velocity': 10,         # Pixels/frame
+            'time': 150,              # Frame at which to drop
+            'velocity': 12,         # Pixels/frame
             'amount': 1.5,            # Average amount per cell; randomisation applies
-            'start': [80, 80],      # Starting point of the drop
-            'end': [100, 250],       # Ending point of the drop
-            'width': 7              # Width of the retardant line (only uneven numbers work)
-        },
-        drop_2={
-            'time': 60,
-            'velocity': 10,
-            'amount': 1.5,
-            'start': [80, 80],
-            'end': [250, 100],
-            'width': 7
-        },
-        drop_3={
-            'time': 80,              # Frame at which to drop
-            'velocity': 10,         # Pixels/frame
-            'amount': 1.5,            # Average amount per cell; randomisation applies
-            'start': [100, 245],      # Starting point of the drop
-            'end': [250, 100],       # Ending point of the drop
-            'width': 5              # Width of the retardant line (only uneven numbers work)
-        },
-        drop_4 = {
-            'time': 90,
-            'velocity': 10,
-            'amount': 1.5,
-            'start': [100, 250],
-            'end': [80, 80],
-            'width': 7
+            'start': [305, 275],      # Starting point of the drop
+            'end': [-10, 250],       # Ending point of the drop
+            'width': 17              # Width of the retardant line (only uneven numbers work)
         }
+        # drop_2={
+        #     'time': 175,              # Frame at which to drop
+        #     'velocity': 12,         # Pixels/frame
+        #     'amount': 1.5,            # Average amount per cell; randomisation applies
+        #     'start': [305, 275],      # Starting point of the drop
+        #     'end': [-10, 250],       # Ending point of the drop
+        #     'width': 17              # Width of the retardant line (only uneven numbers work)
+        # }
+        # drop_3={
+        #     'time': 0,              # Frame at which to drop
+        #     'velocity': 10,         # Pixels/frame
+        #     'amount': 1.5,            # Average amount per cell; randomisation applies
+        #     'start': [210, 60],      # Starting point of the drop
+        #     'end': [50, 100],       # Ending point of the drop
+        #     'width': 5              # Width of the retardant line (only uneven numbers work)
+        # },
+        # drop_4 = {
+        #     'time': 0,
+        #     'velocity': 10,
+        #     'amount': 1.5,
+        #     'start': [120, 250],
+        #     'end': [250, 200],
+        #     'width': 5
+        # }
     )
 
     S.run()
+    S.show_plots()

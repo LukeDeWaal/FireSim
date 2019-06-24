@@ -376,22 +376,22 @@ class SimGrid(object):
         if xrange[0] < 0:
             xrange[0] = 0
             weight_idx[0][0] += 1
-            size[0] = 2
+            size[0] -= 1
 
         elif xrange[1] >= grid.shape[0]:
             xrange[1] = grid.shape[0] - 1
             weight_idx[0][1] -= 1
-            size[0] = 2
+            size[0] -= 1
 
         if yrange[0] < 0:
             yrange[0] = 0
             weight_idx[1][0] += 1
-            size[1] = 2
+            size[1] -= 1
 
-        elif yrange[1] >= grid.shape[0]:
-            yrange[1] = grid.shape[0] - 1
+        elif yrange[1] >= grid.shape[1]:
+            yrange[1] = grid.shape[1] - 1
             weight_idx[1][1] -= 1
-            size[1] = 2
+            size[1] -= 1
 
         if directional_weights and base_weights:
             new_weights = self.__weights[weight_idx[0][0]:weight_idx[0][1], weight_idx[1][0]:weight_idx[1][1]] + \
@@ -509,7 +509,11 @@ class SimGrid(object):
 
                 for x, y in coordinates:
 
-                    result[x, y] += np.random.uniform(0, 1) * amount
+                    try:
+                        result[x, y] += np.random.uniform(0, 1) * amount
+
+                    except IndexError:
+                        continue
 
             if str(ti) not in self.__retardant_droppings.keys():
                 self.__retardant_droppings[str(ti)] = [result, ]
@@ -707,7 +711,7 @@ class SimGrid(object):
         :param path: path to older in which to store
         """
 
-        im.mimsave((path + f'/{name}.{output}'), self.coloured, fps=15, macro_block_size=15)
+        im.mimsave((path + f'/{name}.{output}'), self.coloured, fps=10, macro_block_size=10)
 
 
 
