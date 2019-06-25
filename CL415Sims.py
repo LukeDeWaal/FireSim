@@ -1,7 +1,7 @@
 from main import SimInterface
 import numpy as np
 
-TIME = 500
+TIME = 400
 GRID_SIZE = (200, 400)
 
 Sim = SimInterface(TIME, GRID_SIZE,
@@ -26,36 +26,36 @@ for i in range(GRID_SIZE[0]):
 
 Sim.plan_retardant_drops(
         drop_1={
-            'time': 140,              # Frame at which to drop
+            'time': 120,              # Frame at which to drop
             'velocity': 10,         # Pixels/frame
-            'amount': 1.5,            # Average amount per cell; randomisation applies
-            'start': [GRID_SIZE[0], 160],      # Starting point of the drop
-            'end': [100-10, 160],       # Ending point of the drop
-            'width': 7              # Width of the retardant line (only uneven numbers work)
+            'amount': 1.95,            # Average amount per cell; randomisation applies
+            'start': [GRID_SIZE[0], 120],      # Starting point of the drop
+            'end': [100-10, 120],       # Ending point of the drop
+            'width': 5              # Width of the retardant line (only uneven numbers work)
         },
         drop_2={
-            'time': 141,              # Frame at which to drop
+            'time': 125,              # Frame at which to drop
             'velocity': 10,         # Pixels/frame
-            'amount': 1.5,            # Average amount per cell; randomisation applies
-            'start': [2*GRID_SIZE[0]//3, 166],      # Starting point of the drop
-            'end': [-10, 166],       # Ending point of the drop
-            'width': 7              # Width of the retardant line (only uneven numbers work)
+            'amount': 1.95,            # Average amount per cell; randomisation applies
+            'start': [2*GRID_SIZE[0]//3, 123],      # Starting point of the drop
+            'end': [-10, 123],       # Ending point of the drop
+            'width': 5              # Width of the retardant line (only uneven numbers work)
         },
         drop_3={
-            'time': 163,              # Frame at which to drop
+            'time': 153,              # Frame at which to drop
             'velocity': 10,         # Pixels/frame
-            'amount': 1.5,            # Average amount per cell; randomisation applies
-            'start': [GRID_SIZE[0], 170],      # Starting point of the drop
-            'end': [100-10, 170],       # Ending point of the drop
-            'width': 7              # Width of the retardant line (only uneven numbers work)
+            'amount': 1.75,            # Average amount per cell; randomisation applies
+            'start': [GRID_SIZE[0], 128],      # Starting point of the drop
+            'end': [100-10, 128],       # Ending point of the drop
+            'width': 5              # Width of the retardant line (only uneven numbers work)
         },
         drop_4={
-            'time': 164,              # Frame at which to drop
+            'time': 158,              # Frame at which to drop
             'velocity': 10,         # Pixels/frame
-            'amount': 1.5,            # Average amount per cell; randomisation applies
-            'start': [2*GRID_SIZE[0]//3, 176],      # Starting point of the drop
-            'end': [-10, 176],       # Ending point of the drop
-            'width': 7              # Width of the retardant line (only uneven numbers work)
+            'amount': 1.75,            # Average amount per cell; randomisation applies
+            'start': [2*GRID_SIZE[0]//3, 131],      # Starting point of the drop
+            'end': [-10, 131],       # Ending point of the drop
+            'width': 5              # Width of the retardant line (only uneven numbers work)
         }
 )
 
