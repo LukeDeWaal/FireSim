@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
+from .KernelOperations import KernelOperations as KOP
+
 # plt.interactive(True)
 # print("Interactive Mode: ", plt.isinteractive())
 
@@ -209,9 +211,9 @@ class SimGrid(object):
 
         print("===== SIMULATING =====")
         for t in tqdm(range(self.time)):
-            self.fuel_average[t] = self.__grid_average(self.F_grid)
-            self.fire_average[t] = self.__grid_average(self.I_grid)
-            self.retardant_average[t] = self.__grid_average(self.R_grid)
+            self.fuel_average[t] = KOP.grid_average(self.F_grid)
+            self.fire_average[t] = KOP.grid_average(self.I_grid)
+            self.retardant_average[t] = KOP.grid_average(self.R_grid)
             # print(self.fire_average[t], self.fuel_average[t])
             self.__update(t)
 
@@ -274,7 +276,7 @@ class SimGrid(object):
             p_0 = np.array([xs[0], ys[0]])
             p_1 = np.array([xs[1], ys[1]])
 
-            idcs = [list(i) for i in self.__intersection_point_finder(self.D_grid, p_0, p_1)]
+            idcs = [list(i) for i in KOP.intersection_point_finder(self.D_grid, p_0, p_1)]
 
             for i in range(len(idcs)):
                 idcs[i][0] += np.random.randint(-randomness, randomness)
@@ -285,18 +287,9 @@ class SimGrid(object):
                 if x < 0 or x >= self.D_grid.shape[0] or y < 0 or y >= self.D_grid.shape[1]:
                     continue
 
-                values, idc, result_shape = self.__extract_kernel(self.D_grid, (x, y), size=(3, 3))
+                values, idc, result_shape = KOP.extract_kernel(self.D_grid, (x, y), shape=(3, 3), return_info=True)
 
                 self.D_grid[idc[0][0]:idc[0][1] + 1, idc[1][0]:idc[1][1] + 1] = values + np.random.uniform(0.0, 0.2, result_shape)
-
-    @staticmethod
-    def __grid_average(grid: Union[np.array, np.ndarray]):
-        """
-        Average value of a grid
-        :param grid: m x n sized array
-        :return: average
-        """
-        return np.average(grid)
 
     @staticmethod
     def __directed_weights_increase(direction: Union[np.array, np.ndarray]):
@@ -324,40 +317,6 @@ class SimGrid(object):
         self.main_grid[0, :, :, 1] = np.array(self.I_grid)
         self.main_grid[0, :, :, 2] = np.array(self.R_grid)
         self.main_grid[0, :, :, 3] = np.array(self.D_grid)
-
-    @staticmethod
-    def __extract_kernel(grid: Union[np.array, np.ndarray], position: tuple, size: tuple = (3, 3)):
-
-        size = list(size)
-
-        if grid.shape[0] >= position[0] >= 0 and grid.shape[1] >= position[1] >= 0:
-
-            grid_idx = [[position[0] - size[0] // 2, position[0] + size[0] // 2],
-                        [position[1] - size[1] // 2, position[1] + size[1] // 2]]
-
-            if grid_idx[0][0] < 0:
-                grid_idx[0][0] = 0
-
-            elif grid_idx[0][1] >= grid.shape[0]:
-                grid_idx[0][1] = grid.shape[0] - 1
-
-            size[0] = grid_idx[0][1] - grid_idx[0][0] + 1
-
-            if grid_idx[1][0] < 0:
-                grid_idx[1][0] = 0
-
-            elif grid_idx[1][1] >= grid.shape[1]:
-                grid_idx[1][1] = grid.shape[1] - 1
-
-            size[1] = grid_idx[1][1] - grid_idx[1][0] + 1
-
-            kernel = grid[grid_idx[0][0]:grid_idx[0][1] + 1, grid_idx[1][0]:grid_idx[1][1] + 1]
-
-            return kernel, grid_idx, tuple(size)
-
-        else:
-
-            raise IndexError("Coordinate outside grid")
 
     def __kernel_average(self, grid: Union[np.array, np.ndarray], position: tuple, base_weights: bool = True,
                          directional_weights: bool = True):
@@ -395,9 +354,9 @@ class SimGrid(object):
 
         if directional_weights and base_weights:
             new_weights = self.__weights[weight_idx[0][0]:weight_idx[0][1], weight_idx[1][0]:weight_idx[1][1]] + \
-                          self.__random_kernel(tuple(size),
+                          KOP.random_kernel(tuple(size),
                                                (-self.__gust_factor, self.__gust_factor)) + \
-                          self.__random_kernel(tuple(size),
+                          KOP.random_kernel(tuple(size),
                                                (-self.__elevation_shift_intensity, self.__elevation_shift_intensity))
 
         elif base_weights and not directional_weights:
@@ -407,70 +366,6 @@ class SimGrid(object):
             new_weights = np.ones(shape=tuple(size))
 
         return np.average(grid[xrange[0]:xrange[1] + 1, yrange[0]:yrange[1] + 1], weights=new_weights)
-
-    @staticmethod
-    def __random_kernel(size: tuple, randrange: tuple = (-0.2, 0.2)):
-        """
-        Randomized values to add to the kernel
-        :param size: 2x2, 2x3, 3x2, 3x3
-        :param randrange: Measure of how random the values are
-        :return:
-        """
-        return np.random.uniform(*randrange, size)
-
-    @staticmethod
-    def __intersection_point_finder(grid: Union[np.array, np.ndarray],
-                                    p_0: Union[np.array, np.ndarray],
-                                    p_1: Union[np.array, np.ndarray],
-                                    max_iter: int = 200):
-
-        """
-        Function to calculate all cells the line intersects through linear inerpolation
-        :param grid: Grid in which the interpolation has to be performed
-        :param p_0: starting position
-        :param v: velocity of the aircraft
-        :param length: length of retardant drop
-        :param max_iter: maximum amount of samples
-        :return: [(i0, j0), (i1, j1], ..., (in, jn)
-        """
-
-        indices = []
-
-        length = np.linalg.norm(p_1-p_0)
-        v = (p_1 - p_0)/length
-
-        for n in np.linspace(0, length, max_iter):
-            p_i = p_0 + n * v
-
-            if 0 <= p_i[0] <= grid.shape[0] and 0 <= p_i[1] <= grid.shape[1]:
-                rounded = p_i.round()
-                val = tuple(rounded.astype(int))
-
-                if val not in indices:
-                    indices.append(val)
-
-            else:
-                break
-
-        return indices
-
-    @staticmethod
-    def __get_kernel_indices(idcs: list, shape: tuple = (3, 3)):
-
-        duplicate_check = set()
-        new_idcs = []
-
-        for i, j in idcs:
-            coordinates = []
-            for di in range(-shape[0]//2, shape[0]//2+1):
-                for dj in range(-shape[1]//2, shape[1]//2+1):
-                    idx = (i+di, j+dj)
-
-                    if idx not in duplicate_check:
-                        duplicate_check.add(idx)
-                        coordinates.append(idx)
-            new_idcs.append(coordinates)
-        return new_idcs
 
     def retardant_along_line(self, t: int,
                              amount: float,
@@ -496,8 +391,8 @@ class SimGrid(object):
         direction = p_1 - p_0
         length = np.linalg.norm(direction)
 
-        indices = self.__intersection_point_finder(self.main_grid[t, :, :, 2], p_0, p_1)
-        kernel_indices = self.__get_kernel_indices(indices, shape)
+        indices = KOP.intersection_point_finder(self.main_grid[t, :, :, 2], p_0, p_1)
+        kernel_indices = KOP.get_kernel_indices(indices, shape)
 
         time = int(np.ceil(length/velocity))
         time_chunk = len(kernel_indices)//time+1
@@ -613,7 +508,7 @@ class SimGrid(object):
         delta_fuel = np.array(self.F_grid - old_fuel)
         delta_retardant = np.array(self.R_grid - old_retardant)
 
-        iavgs = self.__intensity_averages()
+        iavgs = KOP.generate_averaged_grid(self.I_grid, self.__weights)
 
         # print(iavgs[self.forest_size[0] // 2 - 1 : self.forest_size[0] // 2 + 2, self.forest_size[1] // 2 - 1: self.forest_size[1] // 2 + 2])
 
