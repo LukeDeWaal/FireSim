@@ -1,4 +1,5 @@
 # from multiprocess import Pool
+from __future__ import print_function
 import datetime
 import os
 from typing import Union
@@ -47,7 +48,7 @@ class SimGrid(object):
         self.I_grid = np.zeros(self.forest_size, dtype=float)  # Intensity Grid
         self.R_grid = np.zeros(self.forest_size, dtype=float)  # Retardant Grid
         self.D_grid = np.random.uniform(0.0, 0.1, self.forest_size)  # Fuel Dryness Index
-        self.__dryness_distribution(5, 4)
+        # self.__dryness_distribution(5, 4)
 
         # Final coloured array
         self.__fire_rgb = [
@@ -319,6 +320,11 @@ class SimGrid(object):
         Implements initial values into main grid
         """
 
+        if '0' in self.__retardant_droppings.keys():
+
+            for value in self.__retardant_droppings['0']:
+                self.R_grid += value
+
         # Set up main grid
         self.main_grid[0, :, :, 0] = np.array(self.F_grid)
         self.main_grid[0, :, :, 1] = np.array(self.I_grid)
@@ -442,9 +448,9 @@ class SimGrid(object):
         for n in np.linspace(0, length, max_iter):
             p_i = p_0 + n * v
 
-            if 0 <= p_i[0] <= grid.shape[0] and 0 <= p_i[1] <= grid.shape[1]:
-                rounded = p_i.round()
-                val = tuple(rounded.astype(int))
+            if 0 <= int(p_i[0]) < grid.shape[0] and 0 <= int(p_i[1]) < grid.shape[1]:
+                rounded = p_i.astype(int)
+                val = tuple(rounded)
 
                 if val not in indices:
                     indices.append(val)
@@ -455,7 +461,7 @@ class SimGrid(object):
         return indices
 
     @staticmethod
-    def __get_kernel_indices(idcs: list, shape: tuple = (3, 3)):
+    def __get_kernel_indices(idcs: list, grid: Union[np.array, np.ndarray], shape: tuple = (3, 3)):
 
         duplicate_check = set()
         new_idcs = []
@@ -464,13 +470,18 @@ class SimGrid(object):
             coordinates = []
             for di in range(-shape[0]//2, shape[0]//2+1):
                 for dj in range(-shape[1]//2, shape[1]//2+1):
-                    idx = (i+di, j+dj)
 
-                    if idx not in duplicate_check:
-                        duplicate_check.add(idx)
-                        coordinates.append(idx)
+                    x = i+di
+                    y = j+dj
+
+                    if 0 <= x < grid.shape[0] and 0 <= y < grid.shape[1]:
+                        idx = (x, y)
+                        if idx not in duplicate_check:
+                            duplicate_check.add(idx)
+                            coordinates.append(idx)
+
             new_idcs.append(coordinates)
-        return new_idcs
+        return np.array(new_idcs)
 
     def retardant_along_line(self, t: int,
                              amount: float,
@@ -497,7 +508,7 @@ class SimGrid(object):
         length = np.linalg.norm(direction)
 
         indices = self.__intersection_point_finder(self.main_grid[t, :, :, 2], p_0, p_1)
-        kernel_indices = self.__get_kernel_indices(indices, shape)
+        kernel_indices = self.__get_kernel_indices(indices, self.main_grid[t, :, :, 2], shape)
 
         time = int(np.ceil(length/velocity))
         time_chunk = len(kernel_indices)//time+1
@@ -508,15 +519,11 @@ class SimGrid(object):
             for coordinates in kernel_indices[time_chunk*idx:time_chunk*(idx+1)]:
 
                 for x, y in coordinates:
-
-                    try:
-                        result[x, y] += np.random.uniform(0, 1) * amount
-
-                    except IndexError:
-                        continue
+                    print(x, y, time_chunk*idx, time_chunk*(idx+1))
+                    result[x, y] += np.random.uniform(0, 1) * amount
 
             if str(ti) not in self.__retardant_droppings.keys():
-                self.__retardant_droppings[str(ti)] = [result, ]
+                self.__retardant_droppings[str(ti)] = [np.array(result), ]
 
             else:
                 self.__retardant_droppings[str(ti)].append(result)
