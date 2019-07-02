@@ -31,6 +31,9 @@ class SimInterface(object):
 
         self.simulation.run(name, path)
 
+    def update(self, t):
+        self.simulation.update(t)
+
     def clear_space(self, topleft: tuple, size: tuple):
 
         self.simulation.clear_space(topleft, size)

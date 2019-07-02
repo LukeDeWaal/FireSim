@@ -86,11 +86,13 @@ class SimGrid(object):
         self.__ground_rgb.reverse()
         self.__ret_rgb.reverse()
         self.coloured = np.zeros((self.time, *self.forest_size, 3), dtype=np.uint8)
-
+        self.__create_coloured_grid(0)
         # Interesting parameters for statistical analysis later
         self.fuel_average = np.zeros((self.time,))
         self.retardant_average = np.zeros((self.time,))
         self.fire_average = np.zeros((self.time,))
+
+        self.timer = 0
 
     def clear_space(self, topleft: tuple, size: tuple):
         """
@@ -198,7 +200,7 @@ class SimGrid(object):
         """
 
         if path is None:
-            path = '\\'.join(os.getcwd().split('\\')) + '\\simulations\\'
+            path = '\\'.join(os.getcwd().split('\\')) + '\\simulation_results\\'
 
         if name is None:
             time = datetime.datetime.now()
@@ -214,10 +216,10 @@ class SimGrid(object):
             self.fire_average[t] = self.__grid_average(self.I_grid)
             self.retardant_average[t] = self.__grid_average(self.R_grid)
             # print(self.fire_average[t], self.fuel_average[t])
-            self.__update(t)
+            self.update(t)
 
         print("===== SAVING =====")
-        self.__save_simulation(name, path)
+        self.save_simulation(name, path)
         print("===== DONE =====")
 
     def plot_progress(self):
@@ -519,7 +521,7 @@ class SimGrid(object):
             for coordinates in kernel_indices[time_chunk*idx:time_chunk*(idx+1)]:
 
                 for x, y in coordinates:
-                    print(x, y, time_chunk*idx, time_chunk*(idx+1))
+
                     result[x, y] += np.random.uniform(0, 1) * amount
 
             if str(ti) not in self.__retardant_droppings.keys():
@@ -648,7 +650,7 @@ class SimGrid(object):
         self.main_grid[t, :, :, 1] = self.I_grid
         return old_grid
 
-    def __update(self, t: int):
+    def update(self, t: int):
 
         if t == 0:
             self.__initialize_grid()
@@ -658,6 +660,7 @@ class SimGrid(object):
             old_intensity = self.__update_intensities(t, old_fuel, old_retardant)
 
         self.__create_coloured_grid(t)
+        self.timer = t
 
     def __create_coloured_grid(self, t: int):
 
@@ -711,14 +714,25 @@ class SimGrid(object):
 
                 self.coloured[t, x, y, :] = colour
 
-    def __save_simulation(self, name: str, path: str, output: str = 'mp4'):
+    def save_simulation(self, name: str = None, path: str = None, output: str = 'mp4'):
         """
         Save simulation as gif
         :param name: name of file
         :param path: path to older in which to store
         """
 
-        im.mimsave((path + f'/{name}.{output}'), self.coloured, fps=10, macro_block_size=10)
+        if path is None:
+            path = '\\'.join(os.getcwd().split('\\')) + '\\simulation_results\\'
+
+        if name is None:
+            time = datetime.datetime.now()
+            date = time.date()
+            date = f"{date.month}_{date.day}"
+            time = time.time()
+            time = f"{time.hour}_{time.minute}_{time.second}"
+            name = f"sim_{date}_{time}"
+
+        im.mimsave((path + f'/{name}.{output}'), self.coloured[0:self.timer+1], fps=10, macro_block_size=10)
 
 
 
