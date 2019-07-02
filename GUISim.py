@@ -13,7 +13,7 @@ files = os.listdir(datafolder)
 lastfile = datafolder + '\\' + files[-1]
 
 
-TIME = 5000
+TIME = 500
 GRID_SIZE = (300, 300)
 
 Sim = SimInterface(
@@ -202,7 +202,7 @@ class Window(tk.Frame):
             self.__update()
 
     def save(self):
-
+        self.simulation.show_plots()
         self.simulation.simulation.save_simulation()
 
     def __frame_update(self, label):
@@ -214,6 +214,9 @@ class Window(tk.Frame):
     def __get_frame(self, t: int):
         return self.framedata[t]
 
+    def plot(self):
+        self.simulation.show_plots()
+
 
 
 
@@ -222,3 +225,4 @@ app = Window(root)
 root.wm_title("Tkinter window")
 root.geometry(f"{GRID_SIZE[0]+50}x{GRID_SIZE[1]}")
 root.mainloop()
+
